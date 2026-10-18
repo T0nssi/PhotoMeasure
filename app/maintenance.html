@@ -1,0 +1,472 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PhotoMeasure – Maintenance Guide</title>
+<link rel="icon" href="data:,">
+<style>
+  :root { --bg:#f6f7f9; --panel:#fff; --line:#d6dce3; --text:#17202b; --muted:#5b6877; --accent:#2563eb; --ok:#15803d; --bad:#c62828; --warn:#b45309; --code:#f1f3f6; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.6 "Segoe UI", Tahoma, "Leelawadee UI", system-ui, sans-serif; }
+  header { position: sticky; top: 0; z-index: 2; background: var(--panel); border-bottom: 1px solid var(--line); padding: 10px 20px; display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+  header h1 { font-size: 17px; margin: 0; }
+  header .sp { flex: 1; }
+  button { font: inherit; padding: 6px 12px; border-radius: 6px; border: 1px solid var(--line); background: var(--panel); cursor: pointer; }
+  button.on { background: var(--accent); color: #fff; border-color: var(--accent); }
+  main { max-width: 1000px; margin: 0 auto; padding: 18px 20px 60px; }
+  h2 { margin: 34px 0 10px; padding-top: 8px; border-top: 2px solid var(--line); font-size: 21px; }
+  h3 { margin: 22px 0 6px; font-size: 17px; }
+  code, pre { font-family: Consolas, "Cascadia Mono", monospace; font-size: 13px; background: var(--code); border-radius: 4px; }
+  code { padding: 1px 5px; }
+  pre { padding: 10px 12px; overflow-x: auto; border: 1px solid var(--line); }
+  table { border-collapse: collapse; width: 100%; margin: 8px 0; background: var(--panel); }
+  th, td { border: 1px solid var(--line); padding: 6px 8px; text-align: left; vertical-align: top; font-size: 14px; }
+  th { background: #eef1f5; }
+  .box { background: var(--panel); border: 1px solid var(--line); border-left: 5px solid var(--accent); border-radius: 6px; padding: 10px 14px; margin: 10px 0; }
+  .warn { border-left-color: var(--warn); } .bad { border-left-color: var(--bad); } .good { border-left-color: var(--ok); }
+  .toc { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 10px 18px; }
+  .risk1 { color: var(--ok); font-weight: 700; } .risk2 { color: var(--warn); font-weight: 700; } .risk3 { color: var(--bad); font-weight: 700; }
+  .flow { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin: 10px 0; }
+  .flow span.b { background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 6px 10px; font-size: 13px; }
+  ol li, ul li { margin: 3px 0; }
+  [data-lang] { display: none; }
+  body.th [data-lang=th], body.en [data-lang=en] { display: block; }
+  @media print { header { display: none; } body.th [data-lang=th], body.en [data-lang=en] { display: block; } h2 { break-before: page; } }
+</style>
+</head>
+<body class="th">
+<header>
+  <h1>PhotoMeasure – คู่มือบำรุงรักษา / Maintenance Guide</h1>
+  <span class="sp"></span>
+  <button id="bTh" class="on">ไทย</button><button id="bEn">English</button>
+  <button onclick="window.print()">🖨 Print / PDF</button>
+</header>
+<main>
+
+<!-- ============================================================ THAI ============================================================ -->
+<div data-lang="th">
+<p class="box">คู่มือนี้ใช้ <b>แก้ไขปัญหาและปรับปรุงโปรแกรมได้ด้วยตัวเอง โดยไม่ต้องใช้อินเทอร์เน็ต</b> สำหรับผู้ที่เพิ่งเริ่มเขียนโปรแกรม
+หลักการสำคัญ 3 ข้อ: <b>(1) ไม่แก้ตัวจริง แก้สำเนาเสมอ (2) แก้ทีละนิด แล้วทดสอบทันที (3) มีทางย้อนกลับเสมอ</b> · เวอร์ชันโปรแกรม 0.6.0</p>
+
+<div class="toc"><b>สารบัญ</b><ol>
+<li><a href="#t1">เตรียมเครื่องมือ (ทำครั้งเดียวตอนมีอินเทอร์เน็ต)</a></li>
+<li><a href="#t2">โปรแกรมทำงานอย่างไร</a></li>
+<li><a href="#t3">แผนที่โค้ด: ไฟล์ไหนทำอะไร</a></li>
+<li><a href="#t4">วิธีหาจุดที่ต้องแก้</a></li>
+<li><a href="#t5">ขั้นตอนแก้ไขอย่างปลอดภัย</a></li>
+<li><a href="#t6">สูตรแก้ไขที่ใช้บ่อย (ทำตามได้ทีละขั้น)</a></li>
+<li><a href="#t7">เมื่อโปรแกรมมีปัญหา: วิธีหาสาเหตุ</a></li>
+<li><a href="#t8">ทดสอบตัวเอง (Self-Test)</a></li>
+<li><a href="#t9">นำเวอร์ชันใหม่ไปใช้งานจริง และการย้อนกลับ</a></li>
+<li><a href="#t10">สร้าง Camera Bridge ใหม่ (เมื่อแก้ไฟล์ .cs)</a></li>
+<li><a href="#t11">คำศัพท์</a></li>
+</ol></div>
+
+<h2 id="t1">1. เตรียมเครื่องมือ (ทำครั้งเดียวตอนมีอินเทอร์เน็ต)</h2>
+<p>ดาวน์โหลดตัวติดตั้งแบบ <b>offline</b> เก็บไว้ใน USB หลังติดตั้งแล้วใช้งานได้โดยไม่ต้องมีอินเทอร์เน็ต</p>
+<table><tr><th>เครื่องมือ</th><th>ใช้ทำอะไร</th><th>จำเป็น?</th></tr>
+<tr><td><b>Google Chrome</b> หรือ <b>Microsoft Edge</b></td><td>เปิดโปรแกรม และดูข้อผิดพลาด (F12)</td><td>จำเป็น</td></tr>
+<tr><td><b>Visual Studio Code</b> (ตัวติดตั้ง “System Installer x64”)</td><td>เปิดและแก้ไขโค้ด ค้นหาข้อความในทุกไฟล์ (Ctrl+Shift+F) มีเลขบรรทัด และขีดเส้นใต้จุดที่พิมพ์ผิด</td><td>แนะนำ (ใช้ Notepad ได้ แต่ยากกว่า)</td></tr>
+<tr><td><b>Git for Windows</b> (หรือ GitHub Desktop)</td><td>เก็บประวัติทุกการแก้ไข ดูว่าแก้อะไรไป และย้อนกลับได้</td><td>แนะนำมาก</td></tr>
+<tr><td><b>.NET 8 SDK x64</b> (หรือใหม่กว่า)</td><td>สร้าง Camera Bridge ใหม่ เมื่อแก้ไฟล์ <code>.cs</code></td><td>เฉพาะเมื่อแก้ส่วนกล้อง</td></tr>
+<tr><td>Basler pylon (Developer) + ASP.NET Core Runtime</td><td>ใช้กล้อง (มีอยู่แล้วที่เครื่องสถานี)</td><td>เฉพาะเครื่องที่ต่อกล้อง</td></tr></table>
+
+<h2 id="t2">2. โปรแกรมทำงานอย่างไร</h2>
+<p>โปรแกรมมี 2 ส่วน:</p>
+<ul>
+<li><b>แอปในเบราว์เซอร์</b> (โฟลเดอร์ <code>app</code>) – หน้าจอทั้งหมด การวัด รายงาน เขียนด้วย <b>HTML + CSS + JavaScript</b> แก้ไฟล์แล้วกด <b>F5</b> ในเบราว์เซอร์ก็เห็นผลทันที <b>ไม่ต้องคอมไพล์</b></li>
+<li><b>Camera Bridge</b> (โฟลเดอร์ <code>CameraBridge</code>) – โปรแกรมเล็กใน Windows ที่คุยกับกล้องผ่าน pylon เขียนด้วย <b>C#</b> ถ้าแก้ไฟล์ <code>.cs</code> ต้องสร้างใหม่ (หัวข้อ 10)</li>
+</ul>
+<p><b>เส้นทางของการวัด 1 ภาพ</b></p>
+<div class="flow"><span class="b">ภาพ (ไฟล์ / กล้อง)</span>→<span class="b">vision.js<br>โหลดภาพ หาวงกลม</span>→<span class="b">engine.js<br>หา REF → วัดขอบ → คำนวณขนาด → OK/NG</span>→<span class="b">app.js<br>แสดงผล</span>→<span class="b">report.js<br>Excel/PDF/Word</span></div>
+<p><b>เส้นทางของภาพจากกล้อง</b></p>
+<div class="flow"><span class="b">ปุ่ม 📷 ถ่ายภาพ<br>camera.js</span>→<span class="b">Camera Bridge<br>/api/grab</span>→<span class="b">CameraService.cs</span>→<span class="b">PylonDriver.cs → pylon → กล้อง</span>→<span class="b">ภาพกลับมาที่ app.js แล้ววัดเหมือนภาพถ่าย</span></div>
+<p><b>ข้อมูลเก็บที่ไหน:</b> ผู้ใช้และโปรแกรมการวัดเก็บใน <b>เบราว์เซอร์</b> (สำรองด้วยปุ่ม ⬇ Backup ที่แท็บผู้ใช้งาน) · ภาพจากกล้อง ภาพที่บันทึก และ log เก็บที่ <code>CameraBridge\data</code> · ค่าตั้งของ Bridge อยู่ที่ <code>CameraBridge\bridge.config.json</code></p>
+
+<h2 id="t3">3. แผนที่โค้ด: ไฟล์ไหนทำอะไร</h2>
+<p>ระดับความเสี่ยง: <span class="risk1">ต่ำ</span> แก้ได้สบายใจ · <span class="risk2">กลาง</span> ทดสอบให้ดี · <span class="risk3">สูง</span> กระทบความถูกต้องของการวัด ต้องผ่าน Self-Test และเทียบกับเครื่องมือวัดจริง</p>
+<table><tr><th>ไฟล์</th><th>หน้าที่</th><th>ความเสี่ยง</th></tr>
+<tr><td><code>app/index.html</code></td><td>หน้าจอ ปุ่ม ช่องกรอก (โครงสร้างหน้าจอ)</td><td class="risk1">ต่ำ</td></tr>
+<tr><td><code>app/css/style.css</code></td><td>สี ขนาดตัวอักษร การจัดวาง</td><td class="risk1">ต่ำ</td></tr>
+<tr><td><code>app/js/i18n.js</code></td><td>ข้อความภาษาอังกฤษ/ไทย ทั้งหน้าจอและรายงาน</td><td class="risk1">ต่ำ</td></tr>
+<tr><td><code>app/js/help.js</code> + <code>app/help/</code></td><td>คู่มือการทำงานในแท็บวิธีใช้ และรูปภาพ</td><td class="risk1">ต่ำ</td></tr>
+<tr><td><code>app/js/report.js</code></td><td>รายงาน Excel, PDF, Word, CSV</td><td class="risk2">กลาง</td></tr>
+<tr><td><code>app/js/app.js</code></td><td>การทำงานของปุ่มในแท็บโปรแกรมการวัด วัดภาพถ่าย รายงาน ผู้ใช้งาน</td><td class="risk2">กลาง</td></tr>
+<tr><td><code>app/js/camera.js</code></td><td>แท็บกล้อง: เชื่อมต่อ ภาพสด ถ่ายภาพ บันทึกภาพ</td><td class="risk2">กลาง</td></tr>
+<tr><td><code>app/js/timing.js</code></td><td>เวลาประมวลผล: สถิติ เวลาไซเคิลสูงสุด CSV</td><td class="risk1">ต่ำ</td></tr>
+<tr><td><code>app/js/calibui.js</code></td><td>การ์ดสอบเทียบสถานีในแท็บกล้อง (ปุ่ม ภาพผล ประวัติ)</td><td class="risk2">กลาง</td></tr>
+<tr><td><code>app/js/charml.js</code></td><td>ตัวอ่านตัวอักษรที่สอนเอง: ตัดตัวอักษร ทำภาพ 32×32 เก็บข้อมูล (IndexedDB) สอนโมเดล (Web Worker) อ่าน</td><td class="risk3">สูง</td></tr>
+<tr><td><code>app/js/trainui.js</code></td><td>แท็บ Training: ภาพตัวอักษร ป้ายชื่อ สอน รายการตัวอ่าน นำเข้า/ส่งออก</td><td class="risk2">กลาง</td></tr>
+<tr><td><code>app/js/calib.js</code></td><td>คำนวณสเกลจากแผ่นสอบเทียบ (dot grid) และเก็บค่าการสอบเทียบ</td><td class="risk3">สูง</td></tr>
+<tr><td><code>app/js/auth.js</code>, <code>library.js</code></td><td>ผู้ใช้/รหัสผ่าน และคลังโปรแกรม</td><td class="risk2">กลาง</td></tr>
+<tr><td><code>app/js/engine.js</code></td><td>หัวใจของการวัด: REF มาตราส่วน การหมุน ขนาด ข้อกำหนด OK/NG</td><td class="risk3">สูง</td></tr>
+<tr><td><code>app/js/vision.js</code>, <code>geom.js</code>, <code>ocr.js</code></td><td>ประมวลผลภาพ หาขอบ หาวงกลม คำนวณเรขาคณิต อ่านตัวอักษร</td><td class="risk3">สูง</td></tr>
+<tr><td><code>app/lib/</code></td><td>ไลบรารีภายนอก (OpenCV, Excel, PDF …)</td><td class="risk3">ห้ามแก้</td></tr>
+<tr><td><code>CameraBridge/bridge.config.json</code></td><td>ค่าตั้ง Bridge: พอร์ต โฟลเดอร์ ชื่อไฟล์ จำนวนวันเก็บ (ไม่ต้องสร้างใหม่)</td><td class="risk1">ต่ำ</td></tr>
+<tr><td><code>CameraBridge/source/CameraBridge/*.cs</code></td><td>โค้ด Camera Bridge (ต้องสร้างใหม่หลังแก้)</td><td class="risk2">กลาง</td></tr>
+<tr><td><code>…/Drivers/PylonDriver.cs</code></td><td>การคุยกับกล้องผ่าน pylon</td><td class="risk3">สูง</td></tr>
+</table>
+
+<h2 id="t4">4. วิธีหาจุดที่ต้องแก้</h2>
+<p><b>วิธีหลัก: ข้อความบนหน้าจอ → id → โค้ด</b></p>
+<ol>
+<li>เปิดโฟลเดอร์ PhotoMeasure ใน VS Code (File → Open Folder)</li>
+<li>กด <b>Ctrl+Shift+F</b> พิมพ์ข้อความที่เห็นบนหน้าจอ เช่น <code>Save image</code></li>
+<li>จะพบใน <code>index.html</code> หรือ <code>i18n.js</code> เช่น <code>&lt;button … id="cSaveNow" …&gt;</code> หรือ <code>camSaveNow: ["💾 Save image", "💾 บันทึกภาพ"]</code></li>
+<li>ค้นหา id นั้นอีกครั้ง เช่น <code>cSaveNow</code> → พบใน <code>camera.js</code> ที่บรรทัด <code>$("#cSaveNow").addEventListener("click", …)</code> นี่คือโค้ดที่ทำงานเมื่อกดปุ่ม</li>
+</ol>
+<p><b>อีกวิธี: ใช้เบราว์เซอร์</b> คลิกขวาที่ปุ่ม → <b>Inspect (ตรวจสอบ)</b> จะเห็น id ของปุ่มนั้น</p>
+<p><b>อ่านโค้ด JavaScript เบื้องต้น</b></p>
+<pre>const S = { … }                 // const/let = ตัวแปร (ที่เก็บค่า)
+function grab(opt) { … }       // function = ชุดคำสั่งที่มีชื่อ เรียกใช้ได้
+$("#cGrab")                    // หา element ในหน้าจอที่มี id="cGrab"
+.addEventListener("click", …)  // เมื่อคลิก ให้ทำ …
+if (it.status === "OK") { … }  // ถ้า … ให้ทำ …
+// ข้อความหลัง // คือคำอธิบาย ไม่มีผลต่อโปรแกรม</pre>
+<p>ทุกไฟล์มีคำอธิบายหน้าที่อยู่ที่บรรทัดแรก ๆ และชื่อฟังก์ชันบอกหน้าที่ เช่น <code>processItem</code> = วัดภาพ 1 ภาพ, <code>renderReportTab</code> = วาดแท็บรายงาน</p>
+
+<h2 id="t5">5. ขั้นตอนแก้ไขอย่างปลอดภัย</h2>
+<ol>
+<li><b>สำเนาก่อน:</b> คัดลอกโฟลเดอร์ทั้งหมดเป็น <code>PhotoMeasure_test</code> แก้เฉพาะในสำเนา <b>ห้ามแก้เครื่องที่ใช้งานจริงโดยตรง</b></li>
+<li><b>บันทึกจุดเริ่มต้นด้วย Git</b> (ทำครั้งแรกครั้งเดียว) เปิด Command Prompt ในโฟลเดอร์สำเนา:
+<pre>git init
+git add -A
+git commit -m "v0.6.0 original"</pre>
+ถ้าไม่มี Git: ทำ zip สำเนาไว้ ตั้งชื่อตามวันที่</li>
+<li><b>รัน Self-Test ก่อนแก้</b> (หัวข้อ 8) ต้องผ่านทั้งหมด</li>
+<li><b>แก้ทีละเรื่องเล็ก ๆ</b> บันทึกไฟล์ (Ctrl+S) แล้วกด <b>F5</b> ในเบราว์เซอร์</li>
+<li><b>ดู Console (F12)</b> ว่ามีข้อความสีแดงหรือไม่ (หัวข้อ 7)</li>
+<li><b>รัน Self-Test อีกครั้ง</b> และลองใช้งานส่วนที่แก้</li>
+<li><b>ดูสิ่งที่เปลี่ยน และบันทึก:</b>
+<pre>git diff                          (ดูบรรทัดที่เปลี่ยน: - ของเดิม, + ของใหม่)
+git add -A
+git commit -m "เปลี่ยนค่าพิกัดเริ่มต้นเป็น 0.05"</pre></li>
+<li><b>ถ้าพัง ย้อนกลับ:</b>
+<pre>git checkout -- app/js/engine.js  (ยกเลิกการแก้ไฟล์นี้ที่ยังไม่ได้ commit)
+git log --oneline                 (ดูประวัติ)
+git revert &lt;รหัส&gt;                  (ยกเลิก commit ที่ทำให้พัง)</pre></li>
+</ol>
+<div class="box warn"><b>กฎทอง:</b> ถ้าไม่แน่ใจ อย่าลบโค้ด ให้ “ปิด” โดยใส่ <code>//</code> หน้าบรรทัด และเขียนอธิบายว่าทำไม · เปลี่ยนตัวเลขทีละค่า · อย่าแก้ไฟล์ใน <code>lib/</code></div>
+
+<h2 id="t6">6. สูตรแก้ไขที่ใช้บ่อย</h2>
+<p>ใช้ <b>Ctrl+Shift+F</b> ค้นหา “ข้อความค้นหา” ตามตาราง (เลขบรรทัดอาจเปลี่ยนตามเวอร์ชัน จึงค้นหาด้วยข้อความ)</p>
+<h3>6.1 เปลี่ยนข้อความบนหน้าจอหรือในรายงาน (ไทย/อังกฤษ) <span class="risk1">ต่ำ</span></h3>
+<p>ไฟล์ <code>app/js/i18n.js</code> แต่ละบรรทัดคือ <code>คีย์: ["อังกฤษ", "ไทย"]</code> เช่น</p>
+<pre>report: ["Measurement report", "รายงานผลการวัด"],</pre>
+<p>แก้เฉพาะข้อความในเครื่องหมาย " " ห้ามลบเครื่องหมาย <code>, [ ] "</code> · ข้อความที่ไม่มีใน i18n.js แก้ใน <code>index.html</code></p>
+<h3>6.2 เปลี่ยนสี OK / NG / CHECK <span class="risk1">ต่ำ</span></h3>
+<p><code>app/css/style.css</code> บรรทัดบน ๆ: <code>--ok: #2fb36b; --bad: #e5534b; --warn: #e3a52b;</code> (โหมดมืด) และบล็อก <code>[data-theme="light"]</code> (โหมดสว่าง)</p>
+<h3>6.3 ค่าพิกัดความเผื่อเริ่มต้น ±0.1 <span class="risk2">กลาง</span></h3>
+<p><code>app/js/app.js</code> ค้นหา <code>d.tolP = d.tolM = 0.1</code> เปลี่ยน 0.1 เป็นค่าที่ต้องการ (มีผลกับรายการวัดที่สร้างใหม่เท่านั้น)</p>
+<h3>6.4 ความละเอียดขั้นต่ำ 20 px/mm (คำเตือน low resolution) <span class="risk2">กลาง</span></h3>
+<p>ปรับได้ในโปรแกรม (ช่อง Min px/mm) ไม่ต้องแก้โค้ด ค่าเริ่มต้นอยู่ที่ <code>engine.js</code> ค้นหา <code>minPxPerMm: 20</code></p>
+<h3>6.5 ค่าเริ่มต้นการหาขอบของเครื่องมือใหม่ <span class="risk3">สูง</span></h3>
+<p><code>engine.js</code> ค้นหา <code>const defaultEdge</code> (<code>thr: 12</code> = ความต่างความสว่างขั้นต่ำ) มีผลเฉพาะเครื่องมือที่สร้างใหม่ ปรับรายเครื่องมือได้ในโปรแกรมอยู่แล้ว</p>
+<h3>6.6 รหัสผ่านขั้นต่ำ 4 ตัวอักษร <span class="risk2">กลาง</span></h3>
+<p><code>app/js/auth.js</code> ค้นหา <code>length &lt; 4</code> (มี 2 จุด) และข้อความ <code>at least 4 characters</code></p>
+<h3>6.7 ขนาดภาพที่ใช้วัด <span class="risk3">สูง</span></h3>
+<p><code>app.js</code> บรรทัดที่ 8: <code>MASTER_MAX = 2600</code> (ภาพต้นแบบ), <code>CAM_MAX = 6000</code> (ภาพจากกล้อง) และค้นหา <code>4096</code> (ภาพถ่ายทั่วไป) ค่ามาก = ละเอียดขึ้นแต่ช้าและใช้หน่วยความจำมากขึ้น</p>
+<h3>6.8 ภาพสด: จำนวนภาพต่อวินาที / ความละเอียด <span class="risk1">ต่ำ</span></h3>
+<p><code>camera.js</code> ค้นหา <code>fps: 10</code> และ <code>Math.min(1600</code> (ขนาดภาพสดสูงสุด)</p>
+<h3>6.9 ปุ่มลัดถ่ายภาพ (Space) <span class="risk1">ต่ำ</span></h3>
+<p><code>camera.js</code> ค้นหา <code>e.code !== "Space"</code> เปลี่ยนเป็นปุ่มอื่น เช่น <code>"F2"</code> หรือ <code>"Enter"</code> (foot switch ส่วนใหญ่ตั้งให้ส่งปุ่มใดก็ได้)</p>
+<h3>6.10 ค่าตั้ง Camera Bridge (ไม่ต้องแก้โค้ด) <span class="risk1">ต่ำ</span></h3>
+<p>ปิด Bridge แล้วแก้ <code>CameraBridge\bridge.config.json</code> ด้วย Notepad: <code>port</code>, <code>keepShotDays</code>, <code>record.pattern</code> (ชื่อไฟล์), <code>record.folder</code>, <code>defaultCamera</code> · บันทึก แล้วเปิด Bridge ใหม่ (ถ้าพิมพ์ผิด Bridge จะใช้ค่าเริ่มต้นและแจ้งในหน้าต่างดำ)</p>
+<h3>6.11 เพิ่มค่าตั้งกล้องในแผงตั้งค่า <span class="risk2">กลาง</span></h3>
+<p><code>CameraBridge/source/CameraBridge/Drivers/Camera.cs</code> รายการ <code>Features.All</code> เพิ่มบรรทัด เช่น<br>
+<code>FeatureDef.F("SensorReadoutTime", "Timing", "Sensor readout (µs)"),</code><br>
+ชื่อแรกต้องตรงกับชื่อใน pylon Viewer (Feature name) แล้วสร้าง Bridge ใหม่ (หัวข้อ 10)</p>
+<h3>6.12 เพิ่ม/เปลี่ยนคอลัมน์รายงาน <span class="risk2">กลาง</span></h3>
+<p><code>report.js</code>: Excel อยู่ในฟังก์ชัน <code>xlsx(ctx)</code>, PDF ใน <code>pdf(ctx)</code>, Word ใน <code>docxReport(ctx)</code>, CSV ใน <code>csv(ctx)</code> ข้อความหัวข้อมาจาก <code>i18n.js</code></p>
+<h3>6.13 เกณฑ์ตรวจการสอบเทียบประจำวัน ±0.05 % <span class="risk2">กลาง</span></h3>
+<p><code>calib.js</code> ค้นหา <code>limitPct = 0.05</code> · อายุการสอบเทียบตั้งได้ในหน้าจอ (ช่อง ใช้ได้ (วัน)) ไม่ต้องแก้โค้ด</p>
+<h3>6.14 เกณฑ์ “ชิ้นงานใหญ่/เล็กกว่าต้นแบบ” ในโหมด Fixed calibration <span class="risk3">สูง</span></h3>
+<p><code>engine.js</code> ค้นหา <code>sc.from === "spacing" ? 1 : 4</code> (1 % เมื่อเทียบระยะระหว่างวงกลม, 4 % เมื่อเทียบเส้นผ่านศูนย์กลาง) ห้ามตั้งกว้างเกินไป เพราะเป็นตัวป้องกันผลผิดเมื่อความสูงชิ้นงานหรือระยะกล้องเปลี่ยน</p>
+<h3>6.15 เพิ่มขั้นตอนในตารางเวลาประมวลผล <span class="risk1">ต่ำ</span></h3>
+<p>ใน <code>processItem</code> ของ <code>app.js</code> เรียก <code>lap("ชื่อขั้นตอน")</code> หลังขั้นตอนนั้น (หรือใน <code>measure</code> ของ <code>engine.js</code>) แล้วเพิ่มชื่อเดียวกันในรายการ <code>STEPS</code> ของ <code>timing.js</code></p>
+
+<h2 id="t7">7. เมื่อโปรแกรมมีปัญหา: วิธีหาสาเหตุ</h2>
+<h3>แอปในเบราว์เซอร์</h3>
+<ol><li>กด <b>F12</b> → แท็บ <b>Console</b> ข้อความสีแดงคือข้อผิดพลาด ทางขวามีชื่อไฟล์และบรรทัด เช่น <code>camera.js:412</code> คลิกเพื่อดูบรรทัดนั้น</li>
+<li>ลองทำซ้ำ: ทำอย่างไรจึงเกิด? เกิดทุกครั้งไหม? เกิดกับภาพเดียวหรือทุกภาพ?</li></ol>
+<table><tr><th>ข้อความที่พบ</th><th>ความหมาย</th><th>วิธีแก้</th></tr>
+<tr><td><code>WebSocket connection to 'ws://127.0.0.1:5090/ws' failed</code></td><td>Camera Bridge ไม่ได้เปิด</td><td>ปกติถ้าใช้ภาพถ่ายอย่างเดียว ไม่ต้องแก้</td></tr>
+<tr><td><code>Uncaught SyntaxError: Unexpected token …</code> / หน้าจอค้าง “Loading”</td><td>พิมพ์ผิดหลังแก้โค้ด (ขาด , ) } หรือ ")</td><td>เปิดไฟล์และบรรทัดที่บอก หรือย้อนการแก้ล่าสุด (git checkout)</td></tr>
+<tr><td><code>Cannot read properties of undefined (reading 'x')</code></td><td>โค้ดใช้ค่าที่ยังไม่มี</td><td>ดูบรรทัดที่บอก มักเกิดจากชื่อ id/ตัวแปรสะกดผิด</td></tr>
+<tr><td><code>… is not defined</code></td><td>ชื่อฟังก์ชัน/ตัวแปรผิด หรือไฟล์ script ไม่ได้โหลด</td><td>ตรวจตัวสะกด (ตัวเล็ก/ใหญ่สำคัญ) และ <code>&lt;script src&gt;</code> ใน index.html</td></tr></table>
+<h3>Camera Bridge</h3>
+<ol><li>อ่านหน้าต่างดำของ Bridge (WARN/ERROR)</li>
+<li>Log ทั้งหมด: <code>CameraBridge\data\logs\bridge-วันที่.log</code></li>
+<li>ดับเบิลคลิก <code>Diagnose.cmd</code> → <code>diagnostics.txt</code> (pylon, กล้อง, ข้อผิดพลาดแบบละเอียด)</li>
+<li>ในเบราว์เซอร์: <code>http://127.0.0.1:5090/api/status</code> และ <code>/api/diag</code></li></ol>
+<table><tr><th>อาการ</th><th>วิธีแก้</th></tr>
+<tr><td>ไม่พบกล้อง</td><td>ปิด pylon Viewer · เสียบ USB 3.0 ใหม่ · กด ↻</td></tr>
+<tr><td>pylon … could not be loaded</td><td>Diagnose.cmd → อ่านบรรทัด <code>tried</code> และ <code>details</code></td></tr>
+<tr><td>No image from the camera (timeout)</td><td>Trigger mode = Off · ลด exposure</td></tr>
+<tr><td>Port 5090 is in use</td><td>Bridge เปิดอยู่แล้ว หรือโปรแกรมอื่นใช้พอร์ต → เปลี่ยน <code>port</code> ใน bridge.config.json</td></tr></table>
+
+<h2 id="t8">8. ทดสอบตัวเอง (Self-Test)</h2>
+<p>เปิดไฟล์ <code>app/selftest.html</code> (ดับเบิลคลิก หรือ <code>http://127.0.0.1:5090/selftest.html</code> เมื่อ Bridge เปิดอยู่) แล้วกด <b>▶ เริ่มทดสอบ</b> (ประมาณ 10 วินาที ไม่ต้องใช้อินเทอร์เน็ต)</p>
+<ul><li>วัดภาพตัวอย่าง 3 ภาพด้วยโปรแกรมที่กำหนดไว้ แล้วเทียบ <b>ทุกค่า</b> กับผลอ้างอิง (ระยะ/เส้นผ่านศูนย์กลาง ต่างได้ไม่เกิน 0.01 มม., ΔE 0.5, ข้อความต้องตรงทุกตัว, OK/NG ต้องตรง)</li>
+<li>สอบเทียบสถานี: แผ่น dot grid จำลอง (สเกลต้องผิดไม่เกิน 0.02 %) · ภาพชิ้นงานที่หมุน 12° และเลื่อน ต้องได้มุมและค่าเท่าเดิม · การป้องกันภาพผิดเงื่อนไข</li>
+<li>สร้างรายงาน Excel, PDF, Word, CSV</li>
+<li>ตรวจ Camera Bridge, pylon และกล้อง (ติ๊ก “ถ่ายภาพ 1 ภาพ” เพื่อทดสอบการถ่ายภาพจริง)</li></ul>
+<div class="box good">ตัวอย่าง: ถ้าการคำนวณเส้นผ่านศูนย์กลางผิดไปเพียง 0.5 % (0.015 มม.) Self-Test จะขึ้น <b>FAIL</b></div>
+<p><b>เมื่อตั้งใจเปลี่ยนผลการวัด</b> (เช่น ปรับการหาขอบให้ดีขึ้น): ตรวจค่าใหม่กับเครื่องมือวัดจริง (CMM/OMM/ไมโครมิเตอร์) ก่อน แล้วกด <b>⬇ New reference…</b> จะได้ไฟล์ <code>selftest-data.js</code> ใหม่ นำไปแทนที่ <code>app/selftest/selftest-data.js</code></p>
+
+<h2 id="t9">9. นำเวอร์ชันใหม่ไปใช้งานจริง และการย้อนกลับ</h2>
+<h3>ก่อนนำไปใช้</h3>
+<table><tr><th>✓</th><th>รายการ</th></tr>
+<tr><td>☐</td><td>Self-Test ผ่านทั้งหมด (บันทึกผล .txt เก็บไว้)</td></tr>
+<tr><td>☐</td><td>เข้าสู่ระบบได้ทั้ง Admin และ Operator</td></tr>
+<tr><td>☐</td><td>เปิดโปรแกรมการวัดจริง 1 โปรแกรม วัดภาพที่รู้ผล (OK และ NG) ได้ผลเหมือนเดิม</td></tr>
+<tr><td>☐</td><td>กล้อง: ภาพสด, ถ่ายภาพ, บันทึกภาพ (ถ้ามีกล้อง)</td></tr>
+<tr><td>☐</td><td>ออกรายงาน 1 ไฟล์ และเปิดดูได้</td></tr>
+<tr><td>☐</td><td>เปลี่ยนเลขเวอร์ชันในชื่อโฟลเดอร์ เช่น <code>PhotoMeasure_v0.5.4</code> และจดว่าเปลี่ยนอะไร</td></tr></table>
+<h3>วันที่ติดตั้ง</h3>
+<ol><li>ที่เครื่องสถานี: กด <b>⬇ Backup (users + programs)</b> ที่แท็บผู้ใช้งาน เก็บไฟล์ไว้</li>
+<li>ปิด Camera Bridge · <b>อย่าลบโฟลเดอร์เดิม</b> เปลี่ยนชื่อเป็น <code>PhotoMeasure_v0.6.0_old</code></li>
+<li>คัดลอกโฟลเดอร์ใหม่ไปไว้ที่เดิม คัดลอก <code>CameraBridge\bridge.config.json</code> และ <code>CameraBridge\data</code> จากโฟลเดอร์เดิมมาด้วย</li>
+<li>เปิดโปรแกรม รัน Self-Test ที่เครื่องนั้น</li>
+<li>ใช้คู่กับวิธีเดิม 1 กะ – 1 สัปดาห์ เทียบผลบางชิ้น ทำในช่วงงานไม่เร่ง</li></ol>
+<h3>ย้อนกลับ (ใช้เวลา 2 นาที)</h3>
+<p>ปิด Bridge → เปลี่ยนชื่อโฟลเดอร์ใหม่ออก → เปลี่ยนชื่อ <code>…_old</code> กลับ → เปิด Bridge (ผู้ใช้และโปรแกรมยังอยู่ในเบราว์เซอร์ ถ้าหายให้ Restore backup)</p>
+
+<h2 id="t10">10. สร้าง Camera Bridge ใหม่ (เมื่อแก้ไฟล์ .cs)</h2>
+<ol><li>ติดตั้ง <b>.NET 8 SDK x64</b> (ครั้งเดียว) ใช้ได้โดยไม่ต้องมีอินเทอร์เน็ต เพราะ Bridge ไม่ใช้แพ็กเกจจากอินเทอร์เน็ต</li>
+<li>ปิด Camera Bridge</li>
+<li>ดับเบิลคลิก <code>CameraBridge\Build-Bridge.cmd</code> ถ้าขึ้น <b>Build succeeded</b> แสดงว่าสำเร็จ ไฟล์ <code>CameraBridge.dll</code> ถูกแทนที่</li>
+<li>ถ้ามี error จะบอกไฟล์และบรรทัด เช่น <code>Camera.cs(52,9): error CS1002: ; expected</code> = บรรทัด 52 ขาด <code>;</code></li>
+<li>ทดสอบด้วยกล้องจำลอง: <code>Start-Simulator.cmd</code> แล้วรัน Self-Test</li></ol>
+<p>ทดสอบส่วน pylon โดยไม่มีกล้อง: โฟลเดอร์ <code>source\FakePylon</code> เป็นตัวจำลอง pylon สำหรับนักพัฒนา (ดูคำอธิบายใน CameraBridge\README.md)</p>
+
+<h2 id="t11">11. คำศัพท์</h2>
+<table><tr><th>คำ</th><th>ความหมาย</th></tr>
+<tr><td>id</td><td>ชื่อเฉพาะของปุ่ม/ช่องในหน้าจอ เช่น <code>id="cGrab"</code></td></tr>
+<tr><td>function (ฟังก์ชัน)</td><td>ชุดคำสั่งที่มีชื่อ เรียกใช้ซ้ำได้</td></tr>
+<tr><td>Console</td><td>หน้าต่างข้อความของเบราว์เซอร์ (F12) แสดงข้อผิดพลาด</td></tr>
+<tr><td>Camera Bridge</td><td>โปรแกรมกลางระหว่างเบราว์เซอร์กับกล้อง</td></tr>
+<tr><td>API</td><td>ที่อยู่ที่โปรแกรมใช้คุยกัน เช่น <code>/api/grab</code> = ถ่ายภาพ</td></tr>
+<tr><td>JSON</td><td>รูปแบบไฟล์ข้อความเก็บข้อมูล เช่น bridge.config.json, .pm.json</td></tr>
+<tr><td>commit (Git)</td><td>จุดบันทึกของการแก้ไข ย้อนกลับมาได้</td></tr>
+<tr><td>Self-Test / golden values</td><td>การทดสอบอัตโนมัติ / ค่าผลลัพธ์อ้างอิงที่ถูกต้อง</td></tr>
+<tr><td>Build</td><td>แปลงโค้ด C# เป็นโปรแกรมที่รันได้ (เฉพาะ Camera Bridge)</td></tr></table>
+</div>
+
+<!-- ============================================================ ENGLISH ============================================================ -->
+<div data-lang="en">
+<p class="box">This guide is for <b>fixing and improving the program yourself, without internet</b>, as a beginner.
+Three rules: <b>(1) never edit the production copy, always a copy (2) change a little, test at once (3) always keep a way back</b>. · Program version 0.6.0</p>
+
+<div class="toc"><b>Contents</b><ol>
+<li><a href="#e1">Tools (install once, while online)</a></li>
+<li><a href="#e2">How the program works</a></li>
+<li><a href="#e3">Code map: which file does what</a></li>
+<li><a href="#e4">Finding the code to change</a></li>
+<li><a href="#e5">Safe change workflow</a></li>
+<li><a href="#e6">Common changes (step-by-step recipes)</a></li>
+<li><a href="#e7">When something is wrong: finding the cause</a></li>
+<li><a href="#e8">Self-Test</a></li>
+<li><a href="#e9">Releasing a new version and rolling back</a></li>
+<li><a href="#e10">Rebuilding the Camera Bridge (after editing .cs files)</a></li>
+<li><a href="#e11">Glossary</a></li>
+</ol></div>
+
+<h2 id="e1">1. Tools (install once, while online)</h2>
+<p>Download the <b>offline installers</b> and keep them on a USB stick. After installation everything works without internet.</p>
+<table><tr><th>Tool</th><th>Used for</th><th>Needed?</th></tr>
+<tr><td><b>Google Chrome</b> or <b>Microsoft Edge</b></td><td>runs the program; F12 shows errors</td><td>yes</td></tr>
+<tr><td><b>Visual Studio Code</b> (“System Installer x64”)</td><td>open and edit code, search all files (Ctrl+Shift+F), line numbers, typos underlined</td><td>recommended (Notepad works, but harder)</td></tr>
+<tr><td><b>Git for Windows</b> (or GitHub Desktop)</td><td>history of every change, see what changed, undo</td><td>strongly recommended</td></tr>
+<tr><td><b>.NET 8 SDK x64</b> (or newer)</td><td>rebuild the Camera Bridge after editing <code>.cs</code> files</td><td>only for camera code changes</td></tr>
+<tr><td>Basler pylon (Developer) + ASP.NET Core Runtime</td><td>camera (already on the station PC)</td><td>camera PC only</td></tr></table>
+
+<h2 id="e2">2. How the program works</h2>
+<ul>
+<li><b>Browser app</b> (folder <code>app</code>): all screens, measuring, reports. <b>HTML + CSS + JavaScript</b>. Save a file, press <b>F5</b> in the browser, and you see the change. <b>No compiling.</b></li>
+<li><b>Camera Bridge</b> (folder <code>CameraBridge</code>): a small Windows program that talks to the camera through pylon. <b>C#</b>. After editing a <code>.cs</code> file it must be rebuilt (section 10).</li>
+</ul>
+<p><b>Path of one measurement</b></p>
+<div class="flow"><span class="b">image (file / camera)</span>→<span class="b">vision.js<br>load, find circles</span>→<span class="b">engine.js<br>find REFs → scan edges → dimensions → OK/NG</span>→<span class="b">app.js<br>display</span>→<span class="b">report.js<br>Excel/PDF/Word</span></div>
+<p><b>Path of a camera image</b></p>
+<div class="flow"><span class="b">📷 Grab button<br>camera.js</span>→<span class="b">Camera Bridge<br>/api/grab</span>→<span class="b">CameraService.cs</span>→<span class="b">PylonDriver.cs → pylon → camera</span>→<span class="b">image back to app.js, measured like a photo</span></div>
+<p><b>Where data lives:</b> users and programs are in the <b>browser</b> (back them up with ⬇ Backup in the Users tab) · camera shots, recorded images and logs in <code>CameraBridge\data</code> · bridge settings in <code>CameraBridge\bridge.config.json</code>.</p>
+
+<h2 id="e3">3. Code map: which file does what</h2>
+<p>Risk: <span class="risk1">low</span> safe to change · <span class="risk2">medium</span> test well · <span class="risk3">high</span> affects measuring accuracy: Self-Test plus a check against a real gauge.</p>
+<table><tr><th>File</th><th>Job</th><th>Risk</th></tr>
+<tr><td><code>app/index.html</code></td><td>screens, buttons, input fields (layout)</td><td class="risk1">low</td></tr>
+<tr><td><code>app/css/style.css</code></td><td>colours, font sizes, layout</td><td class="risk1">low</td></tr>
+<tr><td><code>app/js/i18n.js</code></td><td>English/Thai texts of screens and reports</td><td class="risk1">low</td></tr>
+<tr><td><code>app/js/help.js</code> + <code>app/help/</code></td><td>work instruction in the Help tab, pictures</td><td class="risk1">low</td></tr>
+<tr><td><code>app/js/report.js</code></td><td>Excel, PDF, Word, CSV reports</td><td class="risk2">medium</td></tr>
+<tr><td><code>app/js/app.js</code></td><td>what the buttons do: program, measure, report, users tabs</td><td class="risk2">medium</td></tr>
+<tr><td><code>app/js/camera.js</code></td><td>Camera tab: connect, live view, grab, record</td><td class="risk2">medium</td></tr>
+<tr><td><code>app/js/timing.js</code></td><td>processing time: statistics, cycle-time limit, CSV</td><td class="risk1">low</td></tr>
+<tr><td><code>app/js/calibui.js</code></td><td>station calibration card in the Camera tab (buttons, picture, history)</td><td class="risk2">medium</td></tr>
+<tr><td><code>app/js/charml.js</code></td><td>trained character reader: segmentation, 32×32 images, storage (IndexedDB), training (Web Worker), reading</td><td class="risk3">high</td></tr>
+<tr><td><code>app/js/trainui.js</code></td><td>Training tab: character images, labels, training, readers, import/export</td><td class="risk2">medium</td></tr>
+<tr><td><code>app/js/calib.js</code></td><td>scale from the calibration plate (dot grid), stored calibrations</td><td class="risk3">high</td></tr>
+<tr><td><code>app/js/auth.js</code>, <code>library.js</code></td><td>users/passwords, program library</td><td class="risk2">medium</td></tr>
+<tr><td><code>app/js/engine.js</code></td><td>the measuring core: REFs, scale, rotation, dimensions, specs, OK/NG</td><td class="risk3">high</td></tr>
+<tr><td><code>app/js/vision.js</code>, <code>geom.js</code>, <code>ocr.js</code></td><td>image processing, edges, circles, geometry, text reading</td><td class="risk3">high</td></tr>
+<tr><td><code>app/lib/</code></td><td>external libraries (OpenCV, Excel, PDF …)</td><td class="risk3">do not edit</td></tr>
+<tr><td><code>CameraBridge/bridge.config.json</code></td><td>bridge settings: port, folders, file names, keep-days (no rebuild)</td><td class="risk1">low</td></tr>
+<tr><td><code>CameraBridge/source/CameraBridge/*.cs</code></td><td>Camera Bridge code (rebuild after editing)</td><td class="risk2">medium</td></tr>
+<tr><td><code>…/Drivers/PylonDriver.cs</code></td><td>talking to the camera through pylon</td><td class="risk3">high</td></tr></table>
+
+<h2 id="e4">4. Finding the code to change</h2>
+<p><b>Main method: screen text → id → code</b></p>
+<ol>
+<li>Open the PhotoMeasure folder in VS Code (File → Open Folder).</li>
+<li>Press <b>Ctrl+Shift+F</b> and type the text you see, e.g. <code>Save image</code>.</li>
+<li>You find it in <code>index.html</code> or <code>i18n.js</code>, e.g. <code>&lt;button … id="cSaveNow" …&gt;</code> or <code>camSaveNow: ["💾 Save image", "💾 บันทึกภาพ"]</code>.</li>
+<li>Search that id, <code>cSaveNow</code> → in <code>camera.js</code>: <code>$("#cSaveNow").addEventListener("click", …)</code>. This is the code that runs on the click.</li>
+</ol>
+<p><b>Or in the browser:</b> right-click the button → <b>Inspect</b> shows its id.</p>
+<p><b>Reading JavaScript, the basics</b></p>
+<pre>const S = { … }                 // const/let = a variable (holds a value)
+function grab(opt) { … }       // function = named list of instructions
+$("#cGrab")                    // the element on the screen with id="cGrab"
+.addEventListener("click", …)  // when it is clicked, do …
+if (it.status === "OK") { … }  // if … then …
+// text after // is a comment and does nothing</pre>
+<p>Every file starts with a comment saying what it does, and function names say what they do: <code>processItem</code> = measure one photo, <code>renderReportTab</code> = draw the report tab.</p>
+
+<h2 id="e5">5. Safe change workflow</h2>
+<ol>
+<li><b>Copy first:</b> copy the whole folder to <code>PhotoMeasure_test</code> and change only the copy. <b>Never edit the station PC directly.</b></li>
+<li><b>Mark the starting point with Git</b> (once). Command Prompt in the copy:
+<pre>git init
+git add -A
+git commit -m "v0.6.0 original"</pre>
+Without Git: zip the copy and name it with the date.</li>
+<li><b>Run the Self-Test before the change</b> (section 8): all must pass.</li>
+<li><b>One small change at a time.</b> Save (Ctrl+S) and press <b>F5</b> in the browser.</li>
+<li><b>Look at the Console (F12)</b> for red messages (section 7).</li>
+<li><b>Run the Self-Test again</b> and try the part you changed.</li>
+<li><b>Review and save:</b>
+<pre>git diff                          (changed lines: - old, + new)
+git add -A
+git commit -m "default tolerance 0.05"</pre></li>
+<li><b>If it breaks, go back:</b>
+<pre>git checkout -- app/js/engine.js  (undo changes of this file not yet committed)
+git log --oneline                 (history)
+git revert &lt;id&gt;                    (undo the commit that broke it)</pre></li>
+</ol>
+<div class="box warn"><b>Golden rules:</b> when unsure, don't delete code: switch it off with <code>//</code> in front and write why · change one number at a time · never edit files in <code>lib/</code>.</div>
+
+<h2 id="e6">6. Common changes</h2>
+<p>Use <b>Ctrl+Shift+F</b> with the search text given (line numbers change between versions, so search by text).</p>
+<h3>6.1 Change a text on the screen or in reports (EN/TH) <span class="risk1">low</span></h3>
+<p><code>app/js/i18n.js</code>, each line is <code>key: ["English", "Thai"]</code>, e.g.</p>
+<pre>report: ["Measurement report", "รายงานผลการวัด"],</pre>
+<p>Change only the text inside " ". Do not delete <code>, [ ] "</code>. Texts not in i18n.js are in <code>index.html</code>.</p>
+<h3>6.2 Colours of OK / NG / CHECK <span class="risk1">low</span></h3>
+<p><code>app/css/style.css</code> top lines: <code>--ok: #2fb36b; --bad: #e5534b; --warn: #e3a52b;</code> (dark mode) and the <code>[data-theme="light"]</code> block (light mode).</p>
+<h3>6.3 Default tolerance ±0.1 <span class="risk2">medium</span></h3>
+<p><code>app/js/app.js</code>, search <code>d.tolP = d.tolM = 0.1</code>, change 0.1 (only for new dimensions).</p>
+<h3>6.4 Minimum resolution 20 px/mm (low-resolution warning) <span class="risk2">medium</span></h3>
+<p>Set in the program (Min px/mm field); no code. The default is in <code>engine.js</code>, search <code>minPxPerMm: 20</code>.</p>
+<h3>6.5 Edge defaults for new tools <span class="risk3">high</span></h3>
+<p><code>engine.js</code>, search <code>const defaultEdge</code> (<code>thr: 12</code> = minimum brightness step). New tools only; each tool can already be adjusted in the program.</p>
+<h3>6.6 Minimum password length 4 <span class="risk2">medium</span></h3>
+<p><code>app/js/auth.js</code>, search <code>length &lt; 4</code> (2 places) and the text <code>at least 4 characters</code>.</p>
+<h3>6.7 Image size used for measuring <span class="risk3">high</span></h3>
+<p><code>app.js</code> line 8: <code>MASTER_MAX = 2600</code> (master), <code>CAM_MAX = 6000</code> (camera), and search <code>4096</code> (photos). Bigger = finer but slower and more memory.</p>
+<h3>6.8 Live view frame rate / resolution <span class="risk1">low</span></h3>
+<p><code>camera.js</code>, search <code>fps: 10</code> and <code>Math.min(1600</code> (largest live image).</p>
+<h3>6.9 Grab shortcut key (Space) <span class="risk1">low</span></h3>
+<p><code>camera.js</code>, search <code>e.code !== "Space"</code>, change to e.g. <code>"F2"</code> or <code>"Enter"</code> (most foot switches can send any key).</p>
+<h3>6.10 Camera Bridge settings (no code) <span class="risk1">low</span></h3>
+<p>Close the bridge, edit <code>CameraBridge\bridge.config.json</code> with Notepad: <code>port</code>, <code>keepShotDays</code>, <code>record.pattern</code> (file name), <code>record.folder</code>, <code>defaultCamera</code>. Save and start the bridge (a typo makes it use defaults and say so in the black window).</p>
+<h3>6.11 Add a camera setting to the setup panel <span class="risk2">medium</span></h3>
+<p><code>CameraBridge/source/CameraBridge/Drivers/Camera.cs</code>, list <code>Features.All</code>, add a line, e.g.<br>
+<code>FeatureDef.F("SensorReadoutTime", "Timing", "Sensor readout (µs)"),</code><br>
+The first name must be the feature name shown in pylon Viewer. Then rebuild (section 10).</p>
+<h3>6.12 Report columns <span class="risk2">medium</span></h3>
+<p><code>report.js</code>: Excel in <code>xlsx(ctx)</code>, PDF in <code>pdf(ctx)</code>, Word in <code>docxReport(ctx)</code>, CSV in <code>csv(ctx)</code>. Header texts come from <code>i18n.js</code>.</p>
+<h3>6.13 Daily calibration check limit ±0.05 % <span class="risk2">medium</span></h3>
+<p><code>calib.js</code>, search <code>limitPct = 0.05</code>. The validity (days) is set on the screen (Valid for field), no code.</p>
+<h3>6.14 “Part larger / smaller than the master” limit in Fixed-calibration mode <span class="risk3">high</span></h3>
+<p><code>engine.js</code>, search <code>sc.from === "spacing" ? 1 : 4</code> (1 % for the spacing of circles, 4 % for a diameter). Do not open it up too far: it protects against wrong results when the part height or the camera distance changes.</p>
+<h3>6.15 Add a step to the processing-time table <span class="risk1">low</span></h3>
+<p>In <code>processItem</code> of <code>app.js</code> call <code>lap("stepname")</code> after the step (or in <code>measure</code> of <code>engine.js</code>), then add the same name to the <code>STEPS</code> list in <code>timing.js</code>.</p>
+
+<h2 id="e7">7. When something is wrong: finding the cause</h2>
+<h3>Browser app</h3>
+<ol><li>Press <b>F12</b> → <b>Console</b>. Red lines are errors; on the right the file and line, e.g. <code>camera.js:412</code>. Click it to see the line.</li>
+<li>Reproduce: what do you do to get it? Every time? One photo or all?</li></ol>
+<table><tr><th>Message</th><th>Meaning</th><th>Action</th></tr>
+<tr><td><code>WebSocket connection to 'ws://127.0.0.1:5090/ws' failed</code></td><td>the Camera Bridge is not running</td><td>normal when you only use photos</td></tr>
+<tr><td><code>Uncaught SyntaxError: Unexpected token …</code> / stuck at “Loading”</td><td>a typo after an edit (missing , ) } or ")</td><td>open the file and line given, or undo the last change (git checkout)</td></tr>
+<tr><td><code>Cannot read properties of undefined (reading 'x')</code></td><td>code used something that does not exist</td><td>look at the line; often a misspelled id or variable</td></tr>
+<tr><td><code>… is not defined</code></td><td>wrong function/variable name, or a script file not loaded</td><td>check spelling (upper/lower case matters) and the <code>&lt;script src&gt;</code> lines in index.html</td></tr></table>
+<h3>Camera Bridge</h3>
+<ol><li>Read the black bridge window (WARN/ERROR).</li>
+<li>Full log: <code>CameraBridge\data\logs\bridge-&lt;date&gt;.log</code>.</li>
+<li>Double-click <code>Diagnose.cmd</code> → <code>diagnostics.txt</code> (pylon, cameras, detailed errors).</li>
+<li>In the browser: <code>http://127.0.0.1:5090/api/status</code> and <code>/api/diag</code>.</li></ol>
+<table><tr><th>Symptom</th><th>Action</th></tr>
+<tr><td>no camera found</td><td>close pylon Viewer · re-plug USB 3.0 · press ↻</td></tr>
+<tr><td>pylon … could not be loaded</td><td>Diagnose.cmd → read the <code>tried</code> and <code>details</code> lines</td></tr>
+<tr><td>No image from the camera (timeout)</td><td>Trigger mode = Off · shorter exposure</td></tr>
+<tr><td>Port 5090 is in use</td><td>the bridge already runs, or another program uses the port → change <code>port</code> in bridge.config.json</td></tr></table>
+
+<h2 id="e8">8. Self-Test</h2>
+<p>Open <code>app/selftest.html</code> (double-click, or <code>http://127.0.0.1:5090/selftest.html</code> when the bridge runs) and press <b>▶ Run all tests</b> (about 10 s, no internet).</p>
+<ul><li>Measures 3 sample photos with a fixed program and compares <b>every value</b> with the reference (distances/diameters within 0.01 mm, ΔE 0.5, texts exactly, OK/NG exactly).</li>
+<li>Station calibration: a synthetic dot-grid plate (scale error ≤ 0.02 %) · a part image turned 12° and shifted must give the same angle and values · the blocks for wrong images.</li>
+<li>Builds Excel, PDF, Word and CSV reports.</li>
+<li>Checks the Camera Bridge, pylon and the camera (tick “Grab one camera image” to test a real grab).</li></ul>
+<div class="box good">Example: an error of only 0.5 % in the diameter calculation (0.015 mm) makes the Self-Test <b>FAIL</b>.</div>
+<p><b>When you change measuring results on purpose</b> (e.g. better edge detection): first check the new values with a real gauge (CMM/OMM/micrometer), then press <b>⬇ New reference…</b> and replace <code>app/selftest/selftest-data.js</code> with the downloaded file.</p>
+
+<h2 id="e9">9. Releasing a new version and rolling back</h2>
+<h3>Before release</h3>
+<table><tr><th>✓</th><th>Check</th></tr>
+<tr><td>☐</td><td>Self-Test all PASS (save the .txt result)</td></tr>
+<tr><td>☐</td><td>log in as Admin and as Operator</td></tr>
+<tr><td>☐</td><td>open one real program, measure known OK and NG parts: same results as before</td></tr>
+<tr><td>☐</td><td>camera: live view, grab, save image (if a camera is used)</td></tr>
+<tr><td>☐</td><td>export one report and open it</td></tr>
+<tr><td>☐</td><td>new version number in the folder name, e.g. <code>PhotoMeasure_v0.5.4</code>, and a note of what changed</td></tr></table>
+<h3>On the day</h3>
+<ol><li>On the station PC: <b>⬇ Backup (users + programs)</b> in the Users tab; keep the file.</li>
+<li>Close the Camera Bridge. <b>Do not delete the old folder</b>: rename it <code>PhotoMeasure_v0.6.0_old</code>.</li>
+<li>Copy the new folder to the old place. Copy <code>CameraBridge\bridge.config.json</code> and <code>CameraBridge\data</code> from the old folder.</li>
+<li>Start it and run the Self-Test on that PC.</li>
+<li>Run it next to the old method for a shift to a week and compare some parts. Do it in a quiet period.</li></ol>
+<h3>Roll back (2 minutes)</h3>
+<p>Close the bridge → rename the new folder away → rename <code>…_old</code> back → start the bridge. (Users and programs stay in the browser; if they are missing, restore the backup.)</p>
+
+<h2 id="e10">10. Rebuilding the Camera Bridge (after editing .cs files)</h2>
+<ol><li>Install the <b>.NET 8 SDK x64</b> once. Building works offline: the bridge uses no internet packages.</li>
+<li>Close the Camera Bridge.</li>
+<li>Double-click <code>CameraBridge\Build-Bridge.cmd</code>. <b>Build succeeded</b> = done; <code>CameraBridge.dll</code> is replaced.</li>
+<li>An error names the file and line, e.g. <code>Camera.cs(52,9): error CS1002: ; expected</code> = line 52 misses a <code>;</code>.</li>
+<li>Test with the simulated camera: <code>Start-Simulator.cmd</code>, then the Self-Test.</li></ol>
+<p>Testing the pylon part without a camera: <code>source\FakePylon</code> is a stand-in of the pylon API for developers (see CameraBridge\README.md).</p>
+
+<h2 id="e11">11. Glossary</h2>
+<table><tr><th>Word</th><th>Meaning</th></tr>
+<tr><td>id</td><td>unique name of a button/field on the screen, e.g. <code>id="cGrab"</code></td></tr>
+<tr><td>function</td><td>named list of instructions, can be used again</td></tr>
+<tr><td>Console</td><td>the browser's message window (F12), shows errors</td></tr>
+<tr><td>Camera Bridge</td><td>the program between the browser and the camera</td></tr>
+<tr><td>API</td><td>addresses programs use to talk, e.g. <code>/api/grab</code> = grab an image</td></tr>
+<tr><td>JSON</td><td>text file format for data, e.g. bridge.config.json, .pm.json</td></tr>
+<tr><td>commit (Git)</td><td>a saved point of your changes you can go back to</td></tr>
+<tr><td>Self-Test / golden values</td><td>automatic test / reference results known to be right</td></tr>
+<tr><td>Build</td><td>turn C# code into a runnable program (Camera Bridge only)</td></tr></table>
+</div>
+
+</main>
+<script>
+  const set = l => { document.body.className = l; document.getElementById("bTh").classList.toggle("on", l === "th"); document.getElementById("bEn").classList.toggle("on", l === "en"); try { localStorage.setItem("pm.mlang", l); } catch (e) { } };
+  document.getElementById("bTh").onclick = () => set("th"); document.getElementById("bEn").onclick = () => set("en");
+  try { const l = localStorage.getItem("pm.mlang") || localStorage.getItem("pm.ui"); if (l === "en" || l === "th") set(l); } catch (e) { }
+</script>
+</body>
+</html>

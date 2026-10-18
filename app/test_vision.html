@@ -1,0 +1,27 @@
+<!doctype html><html><head><meta charset="utf-8"></head><body>
+<input type="file" id="f" multiple><canvas id="out"></canvas><pre id="log"></pre>
+<script src="lib/opencv.js"></script><script src="lib/zxing.min.js"></script><script src="lib/exifr.umd.js"></script>
+<script src="js/geom.js"></script><script src="js/vision.js"></script>
+<script>
+window.runTest = async (boxes) => {
+  const files = document.getElementById('f').files, res = [];
+  for (let i = 0; i < files.length; i++) {
+    const t0 = performance.now();
+    const p = await PM.vision.loadPhoto(files[i]);
+    const t1 = performance.now(); console.log("load", (t1-t0)|0);
+    const cs = await PM.vision.findCircles(p);
+    const t2 = performance.now();
+    console.log("circles", (t2-t1)|0, cs.length); let dm = window.SKIPDM ? null : PM.vision.readDataMatrix(p, null); console.log("dm", (performance.now()-t2)|0);
+    const t3 = performance.now();
+    let dm2 = boxes && boxes[i] ? PM.vision.readDataMatrix(p, boxes[i]) : null;
+    const t4 = performance.now();
+    const c = document.getElementById('out'); const k = 1000 / p.h; c.width = p.w * k; c.height = 1000;
+    const x = c.getContext('2d'); x.drawImage(p.canvas, 0, 0, c.width, c.height); x.scale(k, k);
+    cs.forEach((q, j) => { x.strokeStyle = 'red'; x.lineWidth = 3; x.beginPath(); x.arc(q.cx, q.cy, q.r, 0, 7); x.stroke(); x.fillStyle = 'yellow'; x.font = '40px sans-serif'; x.fillText(j, q.cx + q.r, q.cy); });
+    res.push({ name: p.name, w: p.w, h: p.h, date: p.date, src: p.dateSource, ms: [t1 - t0, t2 - t1, t3 - t2, t4 - t3].map(Math.round),
+      circles: cs.map(q => ({ cx: +q.cx.toFixed(1), cy: +q.cy.toFixed(1), r: +q.r.toFixed(2), rms: +q.rms.toFixed(2), cov: +q.coverage.toFixed(2), con: +q.contrast.toFixed(1) })), dm: dm && dm.text, dm2: dm2 && dm2.text, dmTry: dm2 && dm2.try,
+      img: c.toDataURL('image/jpeg', 0.8) });
+  }
+  return res;
+};
+</script></body></html>

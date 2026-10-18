@@ -1,0 +1,9 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework><Nullable>disable</Nullable>
+    <AssemblyName>Basler.Pylon</AssemblyName>
+    <RootNamespace>Basler.Pylon</RootNamespace>
+    <LangVersion>latest</LangVersion>
+    <Version>9.9.0</Version>
+  </PropertyGroup>
+</Project>

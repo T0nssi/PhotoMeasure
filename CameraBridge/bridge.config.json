@@ -1,0 +1,22 @@
+{
+  "port": 5090,
+  "appDir": "../app",
+  "dataDir": "data",
+  "simulator": false,
+  "simFolder": "sim",
+  "pylonAssembly": "",
+  "openBrowser": true,
+  "defaultCamera": "",
+  "autoConnect": true,
+  "keepShotDays": 7,
+  "record": {
+    "folder": "",
+    "format": "png",
+    "pattern": "{program}_{serial}_{date}_{time}_{n}",
+    "autoSave": "off",
+    "saveRaw": true,
+    "saveResult": true,
+    "keepDays": 90
+  },
+  "cameraNames": {}
+}

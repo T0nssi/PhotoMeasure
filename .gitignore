@@ -1,0 +1,8 @@
+# runtime data and build output
+CameraBridge/data/
+data/
+**/bin/
+**/obj/
+*.log
+.DS_Store
+Thumbs.db

@@ -1,0 +1,317 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PhotoMeasure Self-Test</title>
+<link rel="icon" href="data:,">
+<style>
+  :root { --bg:#f4f6f9; --panel:#fff; --line:#d3dae2; --text:#17202b; --muted:#5b6877; --ok:#15803d; --bad:#c62828; --warn:#b45309; --accent:#2563eb; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 14px/1.5 "Segoe UI", Tahoma, "Leelawadee UI", system-ui, sans-serif; }
+  header { background: var(--panel); border-bottom: 1px solid var(--line); padding: 14px 20px; display: flex; gap: 14px; align-items: center; flex-wrap: wrap; }
+  h1 { font-size: 18px; margin: 0; }
+  main { padding: 16px 20px; max-width: 1200px; }
+  button { font: inherit; padding: 8px 14px; border-radius: 6px; border: 1px solid var(--line); background: var(--panel); cursor: pointer; }
+  button.primary { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
+  button:disabled { opacity: .5; cursor: default; }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 12px 14px; margin-bottom: 12px; }
+  .banner { font-size: 26px; font-weight: 800; padding: 14px 18px; border-radius: 8px; border: 3px solid var(--line); margin-bottom: 12px; }
+  .banner.PASS { border-color: var(--ok); color: var(--ok); } .banner.FAIL { border-color: var(--bad); color: var(--bad); } .banner.RUN { color: var(--warn); border-color: var(--warn); }
+  table { border-collapse: collapse; width: 100%; font-size: 13px; }
+  th, td { border-bottom: 1px solid var(--line); padding: 4px 8px; text-align: left; vertical-align: top; }
+  th { color: var(--muted); font-weight: 600; }
+  .PASS { color: var(--ok); font-weight: 700; } .FAIL { color: var(--bad); font-weight: 700; } .SKIP, .INFO { color: var(--muted); font-weight: 700; }
+  .muted { color: var(--muted); } .small { font-size: 12px; }
+  label { user-select: none; }
+</style>
+</head>
+<body>
+<header>
+  <h1>PhotoMeasure – Self-Test / ทดสอบระบบด้วยตัวเอง</h1>
+  <button class="primary" id="run">▶ Run all tests / เริ่มทดสอบ</button>
+  <label><input type="checkbox" id="optReports" checked> Reports / รายงาน</label>
+  <label><input type="checkbox" id="optBridge" checked> Camera Bridge</label>
+  <label><input type="checkbox" id="optGrab"> Grab one camera image / ถ่ายภาพ 1 ภาพ</label>
+  <button id="copy" disabled>Copy result / คัดลอกผล</button>
+  <button id="save" disabled>⬇ Save result (.txt)</button>
+  <button id="renew" disabled title="Only after an INTENDED change of measuring results: download a new selftest-data.js with today's results as the reference">⬇ New reference…</button>
+</header>
+<main>
+  <div class="banner" id="banner">Press “Run all tests”. / กด “เริ่มทดสอบ”</div>
+  <div class="card small muted">
+    Runs completely offline. It measures 3 known photos with a fixed program and compares every value with the reference results (golden values),
+    then builds the 4 report types and checks the Camera Bridge. Run it <b>before and after every change</b>, and before releasing a new version.
+    All tests must be <span class="PASS">PASS</span>.<br>
+    ทำงานได้โดยไม่ต้องใช้อินเทอร์เน็ต: วัดภาพตัวอย่าง 3 ภาพด้วยโปรแกรมที่กำหนดไว้ แล้วเทียบทุกค่ากับผลอ้างอิง สร้างรายงาน 4 แบบ และตรวจ Camera Bridge
+    ให้รัน<b>ก่อนและหลังแก้ไขทุกครั้ง</b> และก่อนนำเวอร์ชันใหม่ไปใช้งานจริง ทุกข้อต้อง <span class="PASS">PASS</span>
+  </div>
+  <div class="card"><table id="tbl"><tr><th style="width:90px">Result</th><th style="width:260px">Test</th><th>Details</th><th style="width:70px">Time</th></tr></table></div>
+</main>
+
+<script src="lib/opencv.js"></script>
+<script src="lib/zxing.min.js"></script>
+<script src="lib/exifr.umd.js"></script>
+<script src="lib/exceljs.min.js"></script>
+<script src="lib/jspdf.umd.min.js"></script>
+<script src="lib/docx.iife.js"></script>
+<script src="js/i18n.js"></script>
+<script src="js/ocr.js"></script>
+<script src="js/charml.js"></script>
+<script src="js/geom.js"></script>
+<script src="js/vision.js"></script>
+<script src="js/engine.js"></script>
+<script src="js/calib.js"></script>
+<script src="js/viewer.js"></script>
+<script src="js/report.js"></script>
+<script src="selftest/selftest-data.js"></script>
+<script>
+"use strict";
+(() => {
+  const $ = s => document.querySelector(s);
+  const E = PM.engine, V = PM.vision, VW = PM.viewer, D = window.PM_SELFTEST;
+  const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+  const lines = []; let fails = 0, passes = 0, lastRun = null;
+
+  function row(result, test, details, ms) {
+    if (result === "PASS") passes++; if (result === "FAIL") fails++;
+    lines.push(`${result.padEnd(5)} ${test} — ${String(details).replace(/<[^>]+>/g, "")}`);
+    const tr = document.createElement("tr");
+    tr.innerHTML = `<td class="${result}">${result}</td><td>${esc(test)}</td><td>${details}</td><td class="muted">${ms != null ? (ms / 1000).toFixed(1) + " s" : ""}</td>`;
+    $("#tbl").appendChild(tr);
+  }
+  async function step(name, fn) {
+    const t0 = performance.now();
+    try { const r = await fn(); row(r?.result || "PASS", name, r?.details ?? "", performance.now() - t0); return r; }
+    catch (e) { console.error(e); row("FAIL", name, `<span class="FAIL">${esc(e.message || e)}</span>`, performance.now() - t0); return null; }
+  }
+  const fileOf = p => { const bin = atob(p.b64), u = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) u[i] = bin.charCodeAt(i); return new File([u], p.name, { type: p.type, lastModified: Date.parse("2026-10-07T10:47:00") }); };
+  function template() {
+    const base = E.newTemplate(), t = D.program;
+    return { ...base, ...t, ref: { ...base.ref, ...t.ref }, datum: { ...base.datum, ...t.datum }, proc: V.procOf(t.proc) };
+  }
+  // tolerance for comparing numbers with the reference
+  function tolFor(kind, ref) { if (kind === "color" || kind === "colordiff") return 0.5; if (kind === "angle") return 0.05; return Math.max(0.01, Math.abs(ref) * 0.002); }
+
+  async function run() {
+    $("#run").disabled = true; ["#copy", "#save", "#renew"].forEach(s => ($(s).disabled = true));
+    $("#tbl").querySelectorAll("tr:not(:first-child)").forEach(r => r.remove());
+    lines.length = 0; fails = 0; passes = 0;
+    const banner = $("#banner"); banner.className = "banner RUN"; banner.textContent = "Running… / กำลังทดสอบ…";
+    const started = new Date();
+    lines.push(`PhotoMeasure self-test ${started.toLocaleString()} · reference v${D?.version || "?"} · ${navigator.userAgent}`);
+    const items = [];
+
+    await step("Test data present / ข้อมูลทดสอบ", async () => {
+      if (!D || !D.program || !D.photos?.length) throw new Error("selftest/selftest-data.js missing or empty");
+      return { details: `program "${esc(D.program.name)}", ${D.photos.length} photos, reference made with v${esc(D.version)} on ${esc(D.created)}` };
+    });
+    if (!D) return finish(started, items);
+    await step("Libraries / ไลบรารี", async () => {
+      await V.whenCv();
+      const miss = [["ZXing", window.ZXing], ["ExcelJS", window.ExcelJS], ["jsPDF", window.jspdf], ["docx", window.docx], ["exifr", window.exifr]].filter(x => !x[1]).map(x => x[0]);
+      if (miss.length) throw new Error("missing: " + miss.join(", "));
+      return { details: "OpenCV, ZXing, ExcelJS, jsPDF, docx, exifr loaded" };
+    });
+
+    const t = template();
+    for (const ph of D.photos) {
+      await step(`Measure ${ph.name} / วัดภาพ`, async () => {
+        const file = fileOf(ph);
+        const p = await V.loadPhoto(file, 4096, t.proc);
+        p.cands = await V.findCircles(p, t.proc);
+        const T = {}, t0 = performance.now();
+        const res = await E.measure(t, p, { masterPatch: t.master.patch, user: "selftest", timing: T });
+        T.total = performance.now() - t0;
+        const exp = ph.expect, bad = [], rowsHtml = [];
+        if (res.status !== exp.status) bad.push(`status ${res.status} ≠ ${exp.status}`);
+        if ((res.dm ?? null) !== (exp.dm ?? null)) bad.push(`2D code "${res.dm}" ≠ "${exp.dm}"`);
+        for (const [id, e] of Object.entries(exp.dims)) {
+          const a = res.dims?.[id], kind = t.dims.find(d => d.id === id)?.kind;
+          let ok = a && a.status === e.status, diff = "";
+          if (a && typeof e.v === "number") { const d = (a.v ?? NaN) - e.v; diff = isNaN(d) ? "no value" : (d >= 0 ? "+" : "") + d.toFixed(4); if (!(Math.abs(d) <= tolFor(kind, e.v))) ok = false; }
+          else if (a && a.v !== e.v) ok = false;
+          if (!ok) bad.push(`${id}: ${a ? JSON.stringify(a.v) + " " + a.status : "missing"} ≠ ${JSON.stringify(e.v)} ${e.status}`);
+          rowsHtml.push(`${id} ${kind || ""}: <b>${esc(typeof a?.v === "number" ? a.v.toFixed(3) : a?.v)}</b> ${esc(a?.status || "")}${diff ? ` <span class="muted">(${diff})</span>` : ""}`);
+        }
+        items.push({ photo: p, name: ph.name, file, res, status: res.status, serial: res.dm || null, dm: res.dm, w: p.w, h: p.h, loadScale: p.loadScale, date: p.date, dateSource: p.dateSource, camera: p.camera, measuredAt: new Date(), measuredBy: "selftest", ov: {}, eov: {} });
+        const details = `status <b>${esc(res.status)}</b> (expected ${esc(exp.status)}) · 2D ${esc(res.dm)}<br><span class="small">${rowsHtml.join(" · ")}</span><br><span class="small muted">⏱ ${Math.round(T.total)} ms (align ${Math.round(T.align || 0)} · tools ${Math.round(T.tools || 0)} · OCR ${Math.round(T.ocr || 0)} · 2D code ${Math.round(T.code || 0)})</span>`;
+        return bad.length ? { result: "FAIL", details: details + `<br><span class="FAIL">${esc(bad.join("; "))}</span>` } : { details };
+      });
+    }
+
+    // ---- station (fixed) calibration ----
+    await step("Calibration plate (synthetic dot grid) / แผ่นสอบเทียบจำลอง", async () => {
+      const pitch = 37.37, W = 1600, H = 1200, c = document.createElement("canvas"); c.width = W; c.height = H;
+      const g = c.getContext("2d"); g.fillStyle = "#f0f0f0"; g.fillRect(0, 0, W, H); g.fillStyle = "#151515";
+      const a = 4 * Math.PI / 180;
+      for (let j = -30; j <= 30; j++) for (let i = -30; i <= 30; i++) {
+        const x = W / 2 + 9.3 + (i * Math.cos(a) - j * Math.sin(a)) * pitch, y = H / 2 - 5.1 + (i * Math.sin(a) + j * Math.cos(a)) * pitch;
+        if (x > 20 && y > 20 && x < W - 20 && y < H - 20) { g.beginPath(); g.arc(x, y, pitch * 0.27, 0, 7); g.fill(); }
+      }
+      const blob = await new Promise(r => c.toBlob(r, "image/png"));
+      const photo = await V.loadPhoto(new File([blob], "plate.png", { type: "image/png" }), 4096, V.defaultProc());
+      const r = await PM.calib.measurePlate(photo, "dots", 1);
+      const err = 100 * (1 / r.s0 - pitch) / pitch;
+      const det = `${r.n} dots · ${(1 / r.s0).toFixed(4)} px/mm (true ${pitch}) · error ${err.toFixed(4)} % · angle ${r.rotDeg.toFixed(3)}° (true 4°) · dot error RMS ${(r.rmsUm / 1000 / r.s0).toFixed(3)} px`;
+      if (Math.abs(err) > 0.02 || Math.abs(r.rotDeg - 4) > 0.02 || r.n < 1000) throw new Error(det);
+      return { details: det };
+    });
+    if (items.length) await step("Fixed calibration: turned and shifted part / ชิ้นงานหมุนและเลื่อน", async () => {
+      // master = first test photo with the scale of its REF holes; new photo = the same photo turned 12° and shifted
+      const it = items[0], p = it.photo, f2 = it.res.cal.frame, k = p.loadScale || 1;
+      const tc = JSON.parse(JSON.stringify(t));
+      tc.ref = { ...tc.ref, mode: "cal", pos: "image", org: { x: f2.ox / k, y: f2.oy / k }, searchMm: null };
+      tc.elements = tc.elements.filter(e => e.id !== "REF2");
+      const st = { id: "selftest", station: "selftest", s0: f2.s * k, W0: Math.round(p.w / k), H0: Math.round(p.h / k), date: new Date().toISOString(), validDays: 0 };
+      // ROIs stay on the same image spots: master frame turned to 0°
+      const fm = { ox: f2.ox, oy: f2.oy, th: 0, s: f2.s }, mpp = q => PM.geom.toMm(fm, PM.geom.toPx(f2, q)), dth = f2.th * 180 / Math.PI;
+      for (const el of tc.elements) { const r = el.roi; if (!r) continue;
+        if (r.cx != null) { const c = mpp({ x: r.cx, y: r.cy }); r.cx = c.x; r.cy = c.y; if (r.a0 != null) { r.a0 += dth; r.a1 += dth; } if (el.tool === "ocr") r.ang = (r.ang || 0) + dth; }
+        if (r.p0) { r.p0 = mpp(r.p0); r.p1 = mpp(r.p1); } }
+      if (tc.code) { const c = mpp(tc.code); tc.code = { ...tc.code, x: c.x, y: c.y }; }
+      tc.reportBox = null;
+      tc.master = { ...tc.master, frame: fm, w: p.w, h: p.h };
+      tc.master.patch = E.masterPatch(tc, p, fm);
+      const cal0 = { ...E.frameInfo(tc, { cx: fm.ox, cy: fm.oy, r: 0 }, null, fm), ok: true };
+      E.setAnchors(tc, E.runElements(tc, p, cal0));
+      const r0 = await E.measure(tc, p, { station: st, dm: null });
+      // turned copy
+      const W = p.w, H = p.h, c = document.createElement("canvas"); c.width = W; c.height = H;
+      const g = c.getContext("2d"); g.fillStyle = "#000"; g.fillRect(0, 0, W, H);
+      g.translate(W / 2 + 0.03 * W, H / 2 - 0.02 * H); g.rotate(12 * Math.PI / 180); g.drawImage(p.canvas, -W / 2, -H / 2);
+      const blob = await new Promise(r => c.toBlob(r, "image/png"));
+      const q = await V.loadPhoto(new File([blob], "turned.png", { type: "image/png" }), 4096, tc.proc);
+      q.loadScale = k;
+      const T = {}, r1 = await E.measure(tc, q, { station: st, dm: null, timing: T });
+      const bad = [], out = [];
+      if (!r1.cal?.ok) throw new Error(r1.cal?.error || "no calibration");
+      const angErr = r1.cal.frame.th * 180 / Math.PI - 12;
+      if (Math.abs(angErr) > 0.1) bad.push(`angle ${(r1.cal.frame.th * 180 / Math.PI).toFixed(3)}° (true 12°)`);
+      for (const d of tc.dims) {
+        const a = r0.dims[d.id], b = r1.dims[d.id];
+        if (!a || typeof a.v !== "number" || !["diameter", "radius", "distance", "angle"].includes(d.kind) || [d.a, d.b].some(x => /^REF/.test(x || ""))) continue;
+        const diff = b && typeof b.v === "number" ? b.v - a.v : NaN, tol = d.kind === "angle" ? 0.1 : Math.max(0.01, Math.abs(a.v) * 0.002);
+        out.push(`${d.id} ${a.v.toFixed(3)} → ${typeof b?.v === "number" ? b.v.toFixed(3) : "—"}`);
+        if (!(Math.abs(diff) <= tol)) bad.push(`${d.id} ${d.kind}: ${a.v.toFixed(4)} vs turned ${b?.v}`);
+        if (["diameter", "radius"].includes(d.kind)) { const gold = D.photos[0].expect.dims[d.id]?.v; if (typeof gold === "number" && Math.abs(a.v - gold) > Math.max(0.01, Math.abs(gold) * 0.002)) bad.push(`${d.id} ${a.v.toFixed(4)} ≠ reference ${gold.toFixed(4)}`); }
+      }
+      if (out.length < 2) bad.push("fewer than 2 dimensions to compare");
+      const det = `found angle ${(r1.cal.frame.th * 180 / Math.PI).toFixed(3)}° (true 12°) · match ${r1.cal.ncc?.toFixed(3)} · features ${esc((r1.cal.search?.features || []).join(", "))} · search ${Math.round(T.align || 0)} ms<br><span class="small">${esc(out.join(" · "))}</span>`;
+      return bad.length ? { result: "FAIL", details: det + `<br><span class="FAIL">${esc(bad.join("; "))}</span>` } : { details: det };
+    });
+    await step("Fixed calibration blocks wrong images / ป้องกันภาพผิดเงื่อนไข", async () => {
+      const st = { s0: 0.03, W0: 1000, H0: 800, date: new Date(Date.now() - 40 * 864e5).toISOString(), validDays: 30, serial: "A1" };
+      const ph = { w: 1000, h: 800, loadScale: 1 }, msgs = [];
+      const a = E.checkStation(null, ph, null), b = E.checkStation(st, { w: 1200, h: 800, loadScale: 1 }, null), c = E.checkStation(st, ph, { serial: "B2" }), d = E.checkStation(st, ph, { serial: "A1" });
+      if (a.ok || b.ok || c.ok || !d.ok || !d.warnings.length) throw new Error(`missing ${a.ok} · size ${b.ok} · camera ${c.ok} · expired ok ${d.ok} warn ${d.warnings.length}`);
+      return { details: "no calibration → blocked · other image size → blocked · other camera → blocked · expired → CHECK" };
+    });
+
+    await step("Trained character reader (synthetic) / ตัวอ่านตัวอักษรที่สอนเอง", async () => {
+      const C = PM.charml; if (!C) throw new Error("js/charml.js not loaded");
+      // characters drawn with the browser fonts: random size, angle, blur, contrast, noise
+      const CL = "0123456789ADZ".split(""), fonts = ["sans-serif", "monospace", "serif"];
+      let sd = 5; const rnd = () => { sd = (sd * 1103515245 + 12345) & 0x7fffffff; return sd / 0x7fffffff; };
+      const recs = [];
+      for (const ch of CL) for (let n = 0; n < 30; n++) {
+        const c = document.createElement("canvas"); c.width = c.height = 64; const x = c.getContext("2d");
+        const lo = 20 + rnd() * 80, hi = 170 + rnd() * 80;
+        x.fillStyle = `rgb(${hi},${hi},${hi})`; x.fillRect(0, 0, 64, 64);
+        x.translate(32 + (rnd() - .5) * 6, 32 + (rnd() - .5) * 6); x.rotate((rnd() - .5) * 0.2); x.filter = `blur(${(rnd()).toFixed(2)}px)`;
+        x.font = `${Math.round(34 + rnd() * 10)}px ${fonts[Math.floor(rnd() * fonts.length)]}`; x.textAlign = "center"; x.textBaseline = "middle"; x.fillStyle = `rgb(${lo},${lo},${lo})`; x.fillText(ch, 0, 2);
+        const d = x.getImageData(0, 0, 64, 64).data, g = new Uint8Array(4096);
+        for (let i = 0; i < 4096; i++) g[i] = Math.max(0, Math.min(255, d[i * 4] + (rnd() - .5) * 20));
+        recs.push({ id: C.uid(), label: ch, verified: true, img: C.b64(C.normaliseGray(g, 64, 64)) });
+      }
+      const m = await C.train(recs, { name: "selftest", hidden: 64, epochs: 20, aug: true, seed: 3 });
+      // a "photo" with the text DZ20 on a gray part: cut into characters and read with the format AA99
+      const pc = document.createElement("canvas"); pc.width = 400; pc.height = 200; const px = pc.getContext("2d");
+      px.fillStyle = "#b8b8b8"; px.fillRect(0, 0, 400, 200); px.fillStyle = "#303030"; px.font = "56px sans-serif"; px.textBaseline = "middle"; px.fillText("DZ20", 130, 100);
+      const photo = { canvas: pc, w: 400, h: 200 }, box = { cx: 200, cy: 100, w: 220, h: 80, angle: 0 };
+      const seg = C.segment(photo, box, { polarity: "auto", lines: 1 });
+      const r = await C.read(photo, box, { format: "AA99", lines: 1, polarity: "auto" }, null).catch(e => ({ err: e.message }));
+      await C.models.put(m); const rr = await C.read(photo, box, { format: "AA99", lines: 1, polarity: "auto" }, m.id); await C.models.del(m.id);
+      const bad = [];
+      if (!(m.testAcc >= 0.85)) bad.push(`test accuracy ${(100 * m.testAcc).toFixed(1)} % < 85 %`);
+      if (seg.boxes.length !== 4) bad.push(`${seg.boxes.length} characters found in "DZ20" (4 expected)`);
+      if (!r.err) bad.push("reading with a missing reader did not report an error");
+      if (rr.text !== "DZ20" || !rr.formatOk) bad.push(`read "${rr.text}" (expected DZ20, format ${rr.formatOk ? "OK" : "not met"})`);
+      const det = `${m.n} synthetic images, ${m.classes.length} characters · test <b>${(100 * m.testAcc).toFixed(1)} %</b> · trained in ${(m.ms / 1000).toFixed(1)} s · "DZ20" → ${seg.boxes.length} characters → read <b>${esc(rr.text)}</b> ${Math.round(rr.conf)} %`;
+      return bad.length ? { result: "FAIL", details: det + `<br><span class="FAIL">${esc(bad.join("; "))}</span>` } : { details: det };
+    });
+
+    if ($("#optReports").checked && items.length) {
+      const ctx = kind => ({
+        t, items, lang: "both", operator: "SELFTEST", company: "", pic: "aligned", imgW: 1000, label: it => it.serial || it.name, now: new Date(), detail: "all",
+        loadImage: async it => ({ img: await createImageBitmap(it.file), imgToPx: VW.A.scale(it.loadScale || 1) }), progress: () => { },
+      });
+      for (const kind of ["xlsx", "pdf", "docx", "csv"]) {
+        await step(`Report ${kind.toUpperCase()} / รายงาน`, async () => {
+          const { blob, name } = await PM.report[kind](ctx(kind));
+          if (!blob || blob.size < 200) throw new Error("report is empty");
+          return { details: `${esc(name)} · ${(blob.size / 1024).toFixed(0)} kB` };
+        });
+      }
+    } else row("SKIP", "Reports", "not selected");
+
+    if ($("#optBridge").checked) {
+      const base = location.protocol.startsWith("http") ? "" : "http://127.0.0.1:5090";
+      const st = await step("Camera Bridge", async () => {
+        let s;
+        try { s = await (await fetch(base + "/api/status")).json(); }
+        catch (e) { return { result: "INFO", details: "not running (normal when you only use phone photos) / ไม่ได้เปิด Camera Bridge" }; }
+        const pylon = (s.drivers || []).find(d => d.name === "pylon");
+        const cam = s.camera?.camera;
+        return {
+          result: pylon?.available ? "PASS" : "FAIL", status: s,
+          details: `bridge ${esc(s.version)} · ${esc(s.runtime)} · pylon: ${pylon?.available ? "loaded" : "<span class='FAIL'>" + esc(pylon?.error || "not available") + "</span>"} · camera: ${cam ? esc(cam.model + " " + cam.serial) + (s.camera.connected ? " connected" : " not connected") : "none"} · disk free ${s.disk?.freeGB} GB`,
+        };
+      });
+      if ($("#optGrab").checked) {
+        await step("Camera grab / ถ่ายภาพจากกล้อง", async () => {
+          if (!st?.status?.camera?.connected) return { result: "SKIP", details: "no camera connected" };
+          const r = await fetch(base + "/api/grab", { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" });
+          const j = await r.json(); if (!r.ok) throw new Error(j.error || r.statusText);
+          const img = await (await fetch(base + j.url)).blob();
+          const bmp = await createImageBitmap(img);
+          if (bmp.width !== j.w || bmp.height !== j.h) throw new Error("image size does not match");
+          return { details: `${j.w}×${j.h} px from ${esc(j.camera)} (${(img.size / 1e6).toFixed(1)} MB)` };
+        });
+      }
+    }
+    finish(started, items);
+  }
+
+  function finish(started, items) {
+    const ok = fails === 0;
+    const b = $("#banner"); b.className = "banner " + (ok ? "PASS" : "FAIL");
+    b.textContent = ok ? `PASS – all ${passes} tests passed / ผ่านทั้งหมด` : `FAIL – ${fails} test(s) failed / ไม่ผ่าน ${fails} รายการ: do not release / ห้ามนำไปใช้งานจริง`;
+    lines.push(`RESULT: ${ok ? "PASS" : "FAIL"} (${passes} passed, ${fails} failed) in ${((new Date() - started) / 1000).toFixed(0)} s`);
+    lastRun = { items };
+    $("#run").disabled = false; ["#copy", "#save"].forEach(s => ($(s).disabled = false));
+    $("#renew").disabled = !items.length;
+  }
+
+  $("#run").addEventListener("click", run);
+  $("#copy").addEventListener("click", async () => { try { await navigator.clipboard.writeText(lines.join("\n")); $("#copy").textContent = "Copied ✓"; } catch (e) { alert(lines.join("\n")); } });
+  $("#save").addEventListener("click", () => {
+    const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([lines.join("\r\n")], { type: "text/plain" }));
+    a.download = `selftest_${new Date().toISOString().slice(0, 16).replace(/[:T]/g, "-")}.txt`; a.click();
+  });
+  $("#renew").addEventListener("click", () => {
+    if (!lastRun?.items?.length) return;
+    if (!confirm("Use TODAY's results as the new reference?\n\nOnly do this after an INTENDED change of the measuring (for example a better edge detection), after you checked the new values against a real gauge / CMM.\n\nใช้ผลวันนี้เป็นค่าอ้างอิงใหม่? ทำเฉพาะเมื่อแก้ไขการวัดโดยตั้งใจ และตรวจค่าใหม่กับเครื่องมือวัดจริงแล้ว")) return;
+    const n = JSON.parse(JSON.stringify(D));
+    n.created = new Date().toISOString().slice(0, 10);
+    n.photos.forEach((p, i) => {
+      const it = lastRun.items.find(x => x.name === p.name); if (!it) return;
+      p.expect = { name: p.name, status: it.res.status, dm: it.res.dm ?? null, dims: Object.fromEntries(Object.entries(it.res.dims).map(([k, d]) => [k, { v: d.v, status: d.status }])) };
+    });
+    const txt = "// Self-test data (renewed " + n.created + "). Replace app/selftest/selftest-data.js with this file.\nwindow.PM_SELFTEST = " + JSON.stringify(n) + ";\n";
+    const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([txt], { type: "text/javascript" })); a.download = "selftest-data.js"; a.click();
+  });
+})();
+</script>
+</body>
+</html>

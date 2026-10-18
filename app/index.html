@@ -1,0 +1,557 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Photo Measurement</title>
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<header>
+  <h1 data-i18n="appTitle">Photo Measurement</h1>
+  <span class="sub" id="tplBadge">no program</span>
+  <nav id="tabs">
+    <button data-tab="template" class="active adminOnly" data-i18n="tabTemplate">1 · Part program</button>
+    <button data-tab="measure" data-i18n="tabMeasure">2 · Measure photos</button>
+    <button data-tab="report" data-i18n="tabReport">3 · Report</button>
+    <button data-tab="camera" id="tabCameraBtn" data-i18n="tabCamera" hidden>📷 Camera</button>
+    <button data-tab="train" class="adminOnly" data-i18n="tabTrain">🧠 Training</button>
+    <button data-tab="users" class="adminOnly" data-i18n="tabUsers">Users</button>
+    <button data-tab="help" data-i18n="tabHelp">Help</button>
+  </nav>
+  <div class="spacer"></div>
+  <span id="busy" class="busy" hidden>…</span>
+  <span class="pill camChip" id="camChip" hidden title="Camera Bridge / camera state">📷 —</span>
+  <span class="pill" id="userChip" title="Logged-in user">—</span>
+  <button class="tb" id="btnLogout" data-i18n="logout">Log out</button>
+  <button class="tb" id="btnTheme" title="Dark / light screen">◐ <span id="themeName">Dark</span></button>
+  <select id="uiLang" title="Language / ภาษา"><option value="en">English</option><option value="th">ไทย</option></select>
+</header>
+
+<!-- ================= TEMPLATE (part program) ================= -->
+<section class="tab active" id="tab-template">
+  <div class="work">
+    <div class="stage">
+      <div class="toolbar" id="tplTools">
+        <button class="tb active" data-tool="pan" title="Select / pan (drag), wheel = zoom">✋ Select</button>
+        <span class="sep"></span>
+        <button class="tb" data-tool="ref1" title="Click inside reference hole 1">◎ REF1</button>
+        <button class="tb" data-tool="ref2" title="Click inside reference hole 2">◎ REF2</button>
+        <span class="sep"></span>
+        <button class="tb" data-tool="circle" title="Drag from centre to the edge">○ Circle</button>
+        <button class="tb" data-tool="arc" title="Click 3 points along the arc">◜ Arc</button>
+        <button class="tb" data-tool="line" title="Drag along the edge">／ Line</button>
+        <button class="tb" data-tool="point" title="Drag across the edge (scan direction)">✛ Edge point</button>
+        <button class="tb" data-tool="color" title="Drag from the centre of a colour spot to its edge: the colour is taught from the master">🎨 Colour point</button>
+        <span class="sep"></span>
+        <button class="tb" data-tool="code" title="Drag from the code centre to a corner">▦ 2D code area</button>
+        <button class="tb" data-tool="ocr" title="Drag a box around a line of marked text (OCR)">🔤 Text (OCR)</button>
+        <button class="tb" data-tool="rbox" title="Drag a rectangle: picture area in reports">▭ Report area</button>
+        <span class="spacer"></span>
+        <label class="chk"><input type="checkbox" id="tplRoi" checked> <span data-i18n="roi">Search areas</span></label>
+        <label class="chk"><input type="checkbox" id="tplPts" checked> <span data-i18n="edgePts">Edge points</span></label>
+        <label class="chk" title="Show the gray image the detection works on"><input type="checkbox" id="tplProc"> <span data-i18n="processed">Processed image</span></label>
+        <button class="tb" id="tplFit" data-i18n="fit">Fit</button>
+      </div>
+      <div class="canvasBox"><canvas id="tplCanvas"></canvas><div class="hint" id="tplHint">Load a master photo to start.</div></div>
+    </div>
+    <aside class="side">
+      <div class="card">
+        <div class="row">
+          <label class="btn primary file"><input type="file" id="masterFile" accept="image/*" hidden><span data-i18n="loadMaster">Load master photo</span></label>
+          <button class="btn primary camOnly" id="btnGrabMaster" hidden data-i18n="grabMaster">📷 Grab master</button>
+          <button class="btn" id="btnNewTpl" data-i18n="newTpl">New</button>
+          <button class="btn primary" id="btnLibSave" data-i18n="libSave">Save to library</button>
+        </div>
+        <div class="row" style="margin-top:8px">
+          <select id="libSel" style="flex:1;min-width:160px"></select>
+          <button class="btn sm" id="btnLibOpen" data-i18n="libOpen">Open</button>
+          <button class="btn sm danger" id="btnLibDel" data-i18n="libDel">Delete</button>
+        </div>
+        <div class="row" style="margin-top:8px">
+          <label class="btn sm file"><input type="file" id="tplFile" accept=".json,application/json" hidden><span data-i18n="openTpl">Import file…</span></label>
+          <button class="btn sm" id="btnSaveTpl" data-i18n="saveTpl">Export file</button>
+          <span class="muted small" id="libInfo"></span>
+        </div>
+      </div>
+      <div class="card">
+        <h2 data-i18n="partRefs">Part &amp; reference circles</h2>
+        <div class="form">
+          <label class="f"><span data-i18n="partName">Part name</span><input id="tName"></label>
+          <label class="f"><span data-i18n="partNo">Part no.</span><input id="tPartNo"></label>
+          <label class="f"><span data-i18n="refMode">Reference</span><select id="tMode"><option value="2c">2 circles (REF1 + REF2)</option><option value="1c">1 circle (REF1)</option><option value="cal">Fixed calibration (station, no REF holes)</option></select></label>
+          <label class="f onlyCal"><span data-i18n="calStation">Station calibration</span><select id="tStation"></select></label>
+          <label class="f onlyCal"><span data-i18n="calPos">Part position</span><select id="tPos"><option value="fixture">Fixture: always the same place</option><option value="shift">Search position (no rotation)</option><option value="image">Search position + rotation</option></select></label>
+          <label class="f onlyCal" title="How far (mm) the part may be from the master position. Empty = whole image."><span data-i18n="calSearch">Search range (mm)</span><input id="tSearch" type="number" step="1" min="0" placeholder="whole image"></label>
+          <label class="f notCal"><span data-i18n="rotFrom">Rotation from</span><select id="tRot"></select></label>
+          <label class="f notCal"><span data-i18n="d1">REF1 hole Ø (mm)</span><input id="tD1" type="number" step="0.001" min="0"></label>
+          <label class="f only2c"><span data-i18n="d2">REF2 hole Ø (mm)</span><input id="tD2" type="number" step="0.001" min="0"></label>
+          <label class="f only2c"><span data-i18n="Lref">REF1–REF2 distance (mm)</span><input id="tL" type="number" step="0.001" min="0" placeholder="auto"></label>
+          <label class="f">Min px/mm<input id="tMinPx" type="number" step="1" min="1"></label>
+          <label class="f">Serial number from<select id="tSerial"></select></label>
+        </div>
+        <div class="muted small" id="calInfo">—</div>
+      </div>
+      <div class="card" id="procCard">
+        <div class="row" style="justify-content:space-between"><h2 data-i18n="imgProc" style="margin:0">Image processing</h2><button class="btn sm" id="btnProcReset">Reset</button></div>
+        <div class="form" style="margin-top:8px">
+          <label class="f">Colour channel<select data-p="channel"><option value="gray">Gray (normal)</option><option value="red">Red</option><option value="green">Green</option><option value="blue">Blue</option><option value="value">Brightest channel</option><option value="saturation">Colour saturation</option></select></label>
+          <label class="f">Brightness <output data-o="brightness"></output><input type="range" data-p="brightness" min="-100" max="100" step="1"></label>
+          <label class="f">Contrast <output data-o="contrast"></output><input type="range" data-p="contrast" min="0.2" max="4" step="0.05"></label>
+          <label class="f">Gamma <output data-o="gamma"></output><input type="range" data-p="gamma" min="0.3" max="3" step="0.05"></label>
+        </div>
+        <div class="row" style="margin-top:6px">
+          <label class="chk"><input type="checkbox" data-p="normalize"> Auto levels</label>
+          <label class="chk"><input type="checkbox" data-p="invert"> Invert</label>
+          <label class="chk" title="After alignment, scale brightness/contrast of the part area to the master before finding edges"><input type="checkbox" data-p="matchMaster"> Match brightness to master</label>
+        </div>
+        <details style="margin-top:8px"><summary class="muted small">Circle detection (finding REF holes)</summary>
+          <div class="form" style="margin-top:6px">
+            <label class="f">Min. roundness<input type="number" data-d="minCirc" min="0.3" max="0.99" step="0.01"></label>
+            <label class="f">Min. axis ratio<input type="number" data-d="minAxis" min="0.3" max="0.99" step="0.01"></label>
+            <label class="f">Min. radius (work px)<input type="number" data-d="minR" min="2" max="200" step="1"></label>
+            <label class="f">Max. radius (1/x of image)<input type="number" data-d="maxRFrac" min="2" max="40" step="1"></label>
+            <label class="f">Blur (px)<input type="number" data-d="blur" min="1" max="15" step="2"></label>
+            <label class="f">Threshold block 1<input type="number" data-d="block1" min="3" max="201" step="2"></label>
+            <label class="f">Threshold block 2<input type="number" data-d="block2" min="3" max="201" step="2"></label>
+            <label class="f">Threshold offset C<input type="number" data-d="C" min="0" max="60" step="1"></label>
+            <label class="f">Canny low<input type="number" data-d="canny1" min="1" max="250" step="1"></label>
+            <label class="f">Canny high<input type="number" data-d="canny2" min="1" max="400" step="1"></label>
+            <label class="f">Work size (px)<input type="number" data-d="workSize" min="400" max="3000" step="100"></label>
+          </div>
+        </details>
+        <details style="margin-top:6px"><summary class="muted small">Reference circle fit</summary>
+          <div class="form" style="margin-top:6px">
+            <label class="f">Search inner (× r)<input type="number" data-r="inner" min="0.1" max="0.95" step="0.05"></label>
+            <label class="f">Search outer (× r)<input type="number" data-r="outer" min="1.05" max="3" step="0.05"></label>
+            <label class="f">Edge threshold<input type="number" data-r="thr" min="1" max="100" step="1"></label>
+            <label class="f">Rays<input type="number" data-r="rays" min="24" max="360" step="6"></label>
+          </div>
+        </details>
+        <div class="muted small" id="procInfo" style="margin-top:6px"></div>
+      </div>
+      <div class="card">
+        <h2 data-i18n="elements">Elements</h2>
+        <div class="scrollY" style="max-height:220px"><table id="elTable" class="tbl"></table></div>
+        <div id="elProps"></div>
+      </div>
+      <div class="card">
+        <h2 data-i18n="construct">Construct</h2>
+        <div class="row" id="consRow">
+          <select id="cTool">
+            <option value="mid">Midpoint (2 points)</option>
+            <option value="intersect">Intersection (2 lines)</option>
+            <option value="foot">Perpendicular foot (point → line)</option>
+            <option value="line2p">Line through 2 points</option>
+            <option value="circle3p">Circle through 3 points</option>
+            <option value="parallel">Parallel line (line, through point)</option>
+            <option value="perp">Perpendicular line (line, through point)</option>
+            <option value="bisector">Bisector (2 lines)</option>
+          </select>
+          <select id="cA"></select><select id="cB"></select><select id="cC"></select>
+          <button class="btn" id="btnCons">+ Add</button>
+        </div>
+      </div>
+      <div class="card">
+        <h2 data-i18n="dimensions">Dimensions &amp; tolerances</h2>
+        <div class="row" id="dimRow">
+          <select id="dKind"></select>
+          <select id="dA"></select><select id="dB"></select>
+          <select id="dAxis"><option value="">XY</option><option value="x">X only</option><option value="y">Y only</option></select>
+          <button class="btn" id="btnDim">+ Add</button>
+        </div>
+        <div class="scrollY" style="max-height:340px;margin-top:8px"><table id="dimTable" class="tbl"></table></div>
+      </div>
+      <div class="card">
+        <h2 data-i18n="datum">Datum (report coordinates)</h2>
+        <div class="form">
+          <label class="f">Origin<select id="dtOrigin"></select></label>
+          <label class="f">X axis toward / along<select id="dtAxis"></select></label>
+          <label class="f">Y axis<select id="dtY"><option value="up">up</option><option value="down">down (image)</option></select></label>
+        </div>
+      </div>
+    </aside>
+  </div>
+</section>
+
+<!-- ================= MEASURE ================= -->
+<section class="tab" id="tab-measure">
+  <div class="work three">
+    <aside class="list">
+      <div style="padding:8px 8px 0"><label class="f"><span data-i18n="program">Program</span><select id="progSel"></select></label><div class="muted small" id="progInfo" style="margin-top:3px"></div></div>
+      <div class="row" style="padding:8px">
+        <label class="btn primary file" style="flex:1;text-align:center"><input type="file" id="photoFiles" accept="image/*" multiple hidden><span data-i18n="addPhotos">Add photos…</span></label>
+        <button class="btn primary camOnly" id="mGrab" hidden title="Grab an image from the camera and measure it (Space)" data-i18n="camGrab">📷 Grab</button>
+      </div>
+      <div class="row" style="padding:0 8px 8px">
+        <button class="btn sm" id="btnRemeasure" data-i18n="remeasure">Re-measure all</button>
+        <button class="btn sm" id="btnClear" data-i18n="clear">Clear</button>
+      </div>
+      <div class="muted small" style="padding:0 8px 6px" id="listInfo">Drop photos here or click "Add photos".</div>
+      <div id="photoList" class="plist"></div>
+    </aside>
+    <div class="stage">
+      <div class="toolbar">
+        <div class="seg"><button class="tb active" id="mAligned" data-i18n="aligned">Aligned</button><button class="tb" id="mOriginal" data-i18n="original">Original</button></div>
+        <label class="chk"><input type="checkbox" id="mSync" checked> <span data-i18n="syncView">Same view for all</span></label>
+        <label class="chk"><input type="checkbox" id="mPts" checked> <span data-i18n="edgePts">Edge points</span></label>
+        <label class="chk"><input type="checkbox" id="mRoi"> <span data-i18n="roi">Search areas</span></label>
+        <label class="chk"><input type="checkbox" id="mCands"> Circles found</label>
+        <label class="chk"><input type="checkbox" id="mProc"> <span data-i18n="processed">Processed image</span></label>
+        <label class="chk" title="Blend the master photo over this photo"><span data-i18n="blend">Master overlay</span> <input type="range" id="mBlend" min="0" max="100" value="0" style="width:80px"></label>
+        <button class="tb" id="mAdjRoi" data-i18n="adjustRoi">Adjust search areas</button>
+        <span class="spacer"></span>
+        <button class="tb" id="mRot" data-i18n="rotate">Rotate 90°</button>
+        <button class="tb" id="mFit" data-i18n="fit">Fit</button>
+        <button class="tb" id="mPrev">◀</button><button class="tb" id="mNext">▶</button>
+      </div>
+      <div class="canvasBox" id="dropZone"><canvas id="mCanvas"></canvas><div class="hint" id="mHint">Create or open a part program, then add photos.</div></div>
+    </div>
+    <aside class="side">
+      <div class="card" id="mInfo"><span class="muted">No photo selected.</span></div>
+      <div class="card notCal">
+        <div class="row">
+          <button class="btn sm" id="btnSwap" data-i18n="swapRefs">Swap REF1/REF2</button>
+          <button class="btn sm" id="btnPick" data-i18n="pickRefs">Pick REF1, REF2 by hand</button>
+          <button class="btn sm" id="btnAuto" data-i18n="autoRefs">Auto find refs</button>
+        </div>
+        <div class="muted small" id="pickHint"></div>
+      </div>
+      <div class="card" id="roiCard" hidden>
+        <h2 data-i18n="adjustRoi">Adjust search areas</h2>
+        <div class="small" id="roiHint">Click a measuring tool on the photo, then drag its handles (● = move). The photo is measured again when you release.</div>
+        <div id="roiEdge" class="form" style="margin-top:6px" hidden>
+          <label class="f">Edge polarity<select data-e="polarity"><option value="any">any</option><option value="d2b">dark → bright</option><option value="b2d">bright → dark</option></select></label>
+          <label class="f">Edge choice<select data-e="select"><option value="strongest">strongest</option><option value="first">first</option><option value="last">last</option></select></label>
+          <label class="f">Threshold<input type="number" data-e="thr" min="1" max="200" step="1"></label>
+        </div>
+        <div class="row" style="margin-top:6px"><button class="btn sm primary" id="btnAutoSearch" title="Try wider areas and softer edge settings, keep the result closest to the master">Auto search</button><button class="btn sm" id="btnRoiReset">Reset this photo</button><button class="btn sm adminOnly" id="btnRoiCopy">Copy to program</button><button class="btn sm" id="btnRoiDone">Done</button></div>
+      </div>
+      <div class="card adminOnly" id="colorCard" hidden>
+        <h2 data-i18n="colorTeach">Colour points</h2>
+        <div class="row"><button class="btn sm" id="btnTeachPhoto">Teach from this photo</button><button class="btn sm" id="btnTeachOk">Teach average of OK photos</button></div>
+        <div class="muted small" style="margin-top:4px">Sets the reference colour of every colour point (not the white references). Then press Re-measure all.</div>
+      </div>
+      <div class="card"><h2 data-i18n="vsMaster">Compared with master</h2><div id="mDiff" class="small muted">—</div></div>
+      <div class="card">
+        <details id="adjBox"><summary><b data-i18n="photoAdjust">Image adjust (this photo)</b></summary>
+          <div class="form" style="margin-top:6px">
+            <label class="f">Brightness <output data-ao="brightness"></output><input type="range" data-a="brightness" min="-100" max="100" step="1" value="0"></label>
+            <label class="f">Contrast <output data-ao="contrast"></output><input type="range" data-a="contrast" min="0.2" max="4" step="0.05" value="1"></label>
+            <label class="f">Gamma <output data-ao="gamma"></output><input type="range" data-a="gamma" min="0.3" max="3" step="0.05" value="1"></label>
+          </div>
+          <div class="row" style="margin-top:6px"><button class="btn sm primary" id="btnAdjApply">Apply &amp; measure</button><button class="btn sm" id="btnAdjMatch">Match master</button><button class="btn sm" id="btnAdjReset">Reset</button></div>
+          <div class="muted small" style="margin-top:4px">Added on top of the program's image processing. "Match master" sets brightness/contrast from the difference to the master.</div>
+        </details>
+      </div>
+      <div class="card"><h2 data-i18n="dimensions">Dimensions</h2><div class="scrollY scrollX" style="max-height:52vh"><table id="mDims" class="tbl"></table></div></div>
+      <div class="card">
+        <details id="tmBox"><summary><b data-i18n="tmTitle">⏱ Processing time</b> <span class="small muted" id="tmLast"></span></summary>
+          <div class="small" id="tmStats" style="margin-top:6px">—</div>
+          <div class="form" style="margin-top:6px">
+            <label class="f" title="Warn when one image takes longer (from the grab, or from adding the photo, to the result). 0 = off"><span data-i18n="tmLimit">Cycle-time limit (ms)</span><input id="tmLimit" type="number" min="0" step="100" placeholder="0 = off"></label>
+            <label class="chk" title="Also write every timing row to the Camera Bridge log folder (data/logs/timing-YYYY-MM-DD.csv)"><input type="checkbox" id="tmLog" checked> <span data-i18n="tmLogBridge">Log to the bridge (CSV)</span></label>
+          </div>
+          <div class="row" style="margin-top:6px"><button class="btn sm" id="tmCsv">⬇ CSV</button><button class="btn sm" id="tmClear" data-i18n="clear">Clear</button></div>
+        </details>
+      </div>
+    </aside>
+  </div>
+</section>
+
+<!-- ================= REPORT ================= -->
+<section class="tab" id="tab-report">
+  <div class="pad">
+    <div class="grid g2">
+      <div class="card">
+        <h2>Report options</h2>
+        <div class="form">
+          <label class="f"><span data-i18n="operator">Inspector</span><input id="rOperator"></label>
+          <label class="f"><span data-i18n="company">Company / dept.</span><input id="rCompany"></label>
+          <label class="f">Language / ภาษา<select id="rLang"><option value="en">English</option><option value="th">ไทย</option><option value="both">English + ไทย</option></select></label>
+          <label class="f">Photos<select id="rWhich"><option value="all">All measured</option><option value="ng">NG / CHECK only</option><option value="ok">OK only</option><option value="sel">Selected photo only</option></select></label>
+          <label class="f">Dimension values<select id="rDetail"><option value="all">All values (detail)</option><option value="ng">NG values only</option><option value="ok">OK values only</option><option value="none">Summary only (no photo pages)</option></select></label>
+          <label class="f">Picture<select id="rPic"><option value="aligned">Aligned, report area</option><option value="full">Whole photo (original)</option></select></label>
+          <label class="f">Image width (px)<select id="rImgW"><option>1200</option><option selected>1600</option><option>2200</option></select></label>
+        </div>
+        <div class="row" style="margin-top:14px">
+          <button class="btn primary" id="btnXlsx">⬇ Excel (.xlsx)</button>
+          <button class="btn primary" id="btnPdf">⬇ PDF</button>
+          <button class="btn primary" id="btnDocx">⬇ Word (.docx)</button>
+          <button class="btn" id="btnCsv">⬇ CSV</button>
+        </div>
+        <div class="muted small" id="rMsg" style="margin-top:8px"></div>
+      </div>
+      <div class="card">
+        <h2 data-i18n="summary">Summary</h2>
+        <div id="rKpi" class="kpis"></div>
+      </div>
+    </div>
+    <div class="card" style="margin-top:14px"><div class="scrollX"><table id="rTable" class="tbl"></table></div></div>
+  </div>
+</section>
+
+<!-- ================= CAMERA ================= -->
+<section class="tab" id="tab-camera">
+  <div class="work">
+    <div class="stage">
+      <div class="toolbar" id="camTools">
+        <button class="tb" id="cLive" title="Live view on / off"><span data-i18n="camLive">▶ Live</span></button>
+        <button class="tb" id="cFreeze" title="Hold the picture on the screen"><span data-i18n="camFreeze">❚❚ Freeze</span></button>
+        <button class="tb primary" id="cGrab" title="Grab one full-resolution image (Space)"><span data-i18n="camGrab">📷 Grab</span></button>
+        <label class="chk" title="Measure every grabbed image with the selected program"><input type="checkbox" id="cMeasure" checked> <span data-i18n="camMeasure">Measure</span></label>
+        <label class="chk" id="cAutoWrap" hidden title="The camera is in hardware-trigger mode: measure every triggered image"><input type="checkbox" id="cAuto" checked> <span data-i18n="camAuto">Auto (trigger)</span></label>
+        <span class="sep"></span>
+        <label class="chk"><input type="checkbox" id="cCross" checked> <span data-i18n="camCross">Crosshair</span></label>
+        <label class="chk"><input type="checkbox" id="cGrid"> <span data-i18n="camGrid">Grid</span></label>
+        <label class="chk" title="Show over-exposed pixels in red"><input type="checkbox" id="cSat" checked> <span data-i18n="camSat">Over-exposure</span></label>
+        <label class="chk" title="Show REF1/REF2 of the program's master image"><input type="checkbox" id="cRefs" checked> <span data-i18n="camRefs">Master refs</span></label>
+        <label class="chk" title="Blend the program's master image over the camera picture to position the part"><span data-i18n="blend">Master overlay</span> <input type="range" id="cGhost" min="0" max="100" value="0" style="width:80px"></label>
+        <span class="spacer"></span>
+        <button class="tb" id="cFit" data-i18n="fit">Fit</button>
+        <button class="tb" id="c100" title="1 screen pixel = 1 camera pixel">1:1</button>
+      </div>
+      <div class="canvasBox" id="cBox"><canvas id="cCanvas"></canvas><div class="hint" id="cHint">Connect a camera.</div><div class="camBanner" id="cBanner" hidden></div></div>
+      <div class="camStatus" id="cStatus">—</div>
+    </div>
+    <aside class="side">
+      <div class="card" id="cConnCard">
+        <h2 data-i18n="camConn">Camera</h2>
+        <div id="cConnState" class="small">—</div>
+        <div class="row adminOnly" style="margin-top:8px">
+          <select id="cCamSel" style="flex:1;min-width:160px"></select>
+          <button class="btn sm" id="cRefresh" title="Search cameras again">↻</button>
+        </div>
+        <div class="row adminOnly" style="margin-top:6px">
+          <button class="btn sm primary" id="cConnect" data-i18n="camConnect">Connect</button>
+          <button class="btn sm" id="cDisconnect" data-i18n="camDisconnect">Disconnect</button>
+          <button class="btn sm" id="cTest" title="Grab one image without measuring" data-i18n="camTest">Test grab</button>
+          <a class="small" id="cDiag" href="#" target="_blank" style="margin-left:auto">Diagnostics</a>
+        </div>
+        <table class="tbl small" id="cInfo" style="margin-top:8px"></table>
+        <label class="f adminOnly" style="margin-top:6px"><span data-i18n="camName">Camera name</span><input id="cName" placeholder="e.g. Station 1 top"></label>
+      </div>
+      <div class="card" id="cResCard" hidden>
+        <h2 data-i18n="camResult">Last result</h2>
+        <div id="cResult" class="small"></div>
+      </div>
+      <div class="card adminOnly" id="cSetupCard">
+        <div class="row" style="justify-content:space-between"><h2 style="margin:0" data-i18n="camSetup">Camera setup</h2><button class="btn sm" id="cReload" title="Read the settings from the camera again">↻</button></div>
+        <div class="camHist"><canvas id="cHist" width="256" height="56"></canvas><div class="small muted" id="cHistTxt">—</div></div>
+        <div class="camFocus"><canvas id="cFocus" width="256" height="34"></canvas><div class="small muted" id="cFocusTxt">Focus: —</div></div>
+        <div id="cFeat"></div>
+        <div class="row" style="margin-top:10px">
+          <button class="btn sm primary" id="cToProg" title="Store these settings in the open program; they are applied when the program is selected" data-i18n="camToProg">Save to program</button>
+          <button class="btn sm" id="cFromProg" title="Apply the settings stored in the open program" data-i18n="camFromProg">Apply program settings</button>
+        </div>
+        <div class="muted small" id="cProgInfo" style="margin-top:4px"></div>
+        <div class="row" style="margin-top:10px">
+          <select id="cUserSet"></select>
+          <button class="btn sm" id="cUsLoad" title="Load this user set from the camera">Load</button>
+          <button class="btn sm" id="cUsSave" title="Save the current settings into this user set in the camera">Save</button>
+          <button class="btn sm" id="cUsStart" title="Camera starts with this user set after power-on">Start-up</button>
+        </div>
+        <div class="row" style="margin-top:6px">
+          <button class="btn sm" id="cPfsOut" title="Download all camera settings as a pylon .pfs file">⬇ .pfs</button>
+          <label class="btn sm file" title="Load camera settings from a pylon .pfs file"><input type="file" id="cPfsIn" accept=".pfs,.txt" hidden>⬆ .pfs</label>
+        </div>
+      </div>
+      <div class="card" id="cRecCard">
+        <h2 data-i18n="camRecord">Record images</h2>
+        <div class="row">
+          <button class="btn sm primary" id="cSaveNow" title="Save the image on the screen (or a new grab) to the record folder" data-i18n="camSaveNow">💾 Save image</button>
+          <span class="muted small" id="cRecMsg"></span>
+        </div>
+        <div class="row" style="margin-top:8px">
+          <label class="f" style="width:90px"><span data-i18n="camCount">Images</span><input id="cSeqN" type="number" min="2" max="10000" value="10"></label>
+          <label class="f" style="width:110px"><span data-i18n="camEvery">Every (s)</span><input id="cSeqT" type="number" min="0" max="3600" step="0.1" value="1"></label>
+          <button class="btn sm" id="cSeqGo" style="align-self:flex-end" data-i18n="camSeq">● Record sequence</button>
+        </div>
+        <div class="form adminOnly" style="margin-top:8px">
+          <label class="f"><span data-i18n="camAutoSave">Auto-save after measuring</span><select id="cAutoSave"><option value="off">Off</option><option value="all">Every image</option><option value="ng">NG / CHECK only</option></select></label>
+          <label class="f"><span data-i18n="camFormat">File format</span><select id="cFormat"><option value="png">PNG (lossless)</option><option value="bmp">BMP (lossless, large)</option></select></label>
+          <label class="f" style="grid-column:1/-1"><span data-i18n="camPattern">File name</span><input id="cPattern" title="{program} {serial} {status} {camera} {user} {date} {time} {ms} {n}"></label>
+          <label class="f" style="grid-column:1/-1"><span data-i18n="camFolder">Folder (on this PC)</span><input id="cFolder" placeholder="empty = data\images next to the bridge"></label>
+          <label class="f"><span data-i18n="camKeep">Keep (days, 0 = always)</span><input id="cKeep" type="number" min="0" max="3650"></label>
+          <div class="row" style="align-self:end"><label class="chk"><input type="checkbox" id="cSaveRaw"> <span data-i18n="camRaw">image</span></label><label class="chk"><input type="checkbox" id="cSaveRes"> <span data-i18n="camRes">result picture</span></label></div>
+        </div>
+        <div class="row adminOnly" style="margin-top:6px"><button class="btn sm" id="cRecApply" data-i18n="camRecApply">Save record settings</button></div>
+        <div class="muted small" id="cRecRoot" style="margin-top:6px"></div>
+        <details style="margin-top:6px" id="cRecListBox"><summary class="small"><span data-i18n="camRecent">Recorded today</span> <span id="cRecCount" class="muted"></span></summary>
+          <div class="row" style="margin-top:4px"><select id="cRecDay"></select><button class="btn sm" id="cRecRefresh">↻</button></div>
+          <div id="cRecList" class="scrollY small" style="max-height:220px;margin-top:4px"></div>
+        </details>
+      </div>
+      <div class="card" id="calCard">
+        <div class="row" style="justify-content:space-between"><h2 style="margin:0" data-i18n="calTitle">Station calibration</h2><span id="calState" class="small"></span></div>
+        <div id="calActive" class="small" style="margin-top:4px">—</div>
+        <details id="calBox" style="margin-top:6px"><summary class="small"><b data-i18n="calNew">Calibrate / check with a plate</b></summary>
+          <div class="form" style="margin-top:6px">
+            <label class="f"><span data-i18n="calMethod">Plate</span><select id="calMethod"><option value="dots">Dot grid (square pattern)</option><option value="circle">Ring / pin gauge (one circle)</option></select></label>
+            <label class="f"><span id="calSizeLbl">Dot pitch (mm)</span><input id="calSize" type="number" step="0.0001" min="0" placeholder="e.g. 1.000"></label>
+            <label class="f adminOnly"><span data-i18n="calValid">Valid for (days)</span><input id="calDays" type="number" min="0" step="1" value="30"></label>
+            <label class="f adminOnly"><span data-i18n="calName">Name</span><input id="calName" placeholder="e.g. Station 1 top camera"></label>
+          </div>
+          <div class="row" style="margin-top:6px">
+            <button class="btn sm primary camOnly" id="calGrab" hidden data-i18n="calGrab">📷 Grab plate</button>
+            <label class="btn sm file"><input type="file" id="calFile" accept="image/*" hidden><span data-i18n="calLoad">Load plate image…</span></label>
+          </div>
+          <canvas id="calView" width="300" height="200" style="display:block;max-width:100%;max-height:240px;margin:6px auto 0;background:#111;border-radius:6px" hidden></canvas>
+          <div id="calRes" class="small" style="margin-top:6px"></div>
+          <div class="row" style="margin-top:6px">
+            <button class="btn sm primary adminOnly" id="calSave" disabled data-i18n="calSave">Save calibration</button>
+            <button class="btn sm" id="calCheck" disabled data-i18n="calCheck">Check against saved</button>
+          </div>
+        </details>
+        <details style="margin-top:6px"><summary class="small" data-i18n="calHist">History</summary><div id="calList" class="small" style="margin-top:4px"></div></details>
+      </div>
+    </aside>
+  </div>
+</section>
+
+<!-- ================= USERS ================= -->
+<section class="tab" id="tab-users">
+  <div class="pad">
+    <div class="grid g2">
+      <div class="card">
+        <h2 data-i18n="tabUsers">Users</h2>
+        <table class="tbl" id="userTable"></table>
+      </div>
+      <div class="card">
+        <h2>Add user</h2>
+        <div class="form">
+          <label class="f">Name<input id="uName" autocomplete="off"></label>
+          <label class="f">Role<select id="uRole"><option value="operator">Operator: select programs, measure, report</option><option value="admin">Admin: also create and change programs, users</option></select></label>
+          <label class="f">Password<input id="uPass" type="password" autocomplete="new-password"></label>
+        </div>
+        <div class="row" style="margin-top:10px"><button class="btn primary" id="btnUserAdd">Add user</button><span class="muted small" id="uMsg"></span></div>
+        <div class="row" style="margin-top:14px">
+          <button class="btn sm" id="btnBackupOut" title="Users and all programs of the library in one file">⬇ Backup (users + programs)</button>
+          <label class="btn sm file"><input type="file" id="btnBackupIn" accept=".json,application/json" hidden>⬆ Restore backup…</label>
+        </div>
+        <div class="row" style="margin-top:10px">
+          <a class="btn sm" href="selftest.html" target="_blank" title="Automatic offline test of measuring, reports and camera – run before and after every change">✅ Self-Test</a>
+          <a class="btn sm" href="maintenance.html" target="_blank" title="How to find, change, test and release code yourself (Thai / English)">🛠 Maintenance guide</a>
+        </div>
+        <p class="muted small" style="margin-top:6px">Use the backup to move users and programs to another PC, or from the file version (index.html) to the Camera Bridge version (http://127.0.0.1:5090): each keeps its own data.</p>
+        <p class="muted small" style="margin-top:12px">Users and passwords are kept on this PC (in this browser). Passwords are stored as salted SHA-256 hashes. The roles keep normal users to their work; they are not protection against someone who opens the browser's developer tools.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= TRAINING (own character reader) ================= -->
+<section class="tab" id="tab-train">
+  <div class="work trainWork">
+    <div class="stage">
+      <div class="toolbar">
+        <b style="margin-right:6px" data-i18n="trImages">Character images</b>
+        <select id="trProg" title="Program · text element"></select>
+        <select id="trLabel" title="Label"></select>
+        <select id="trState" title="Label state"><option value="">All states</option><option value="unl">? no label</option><option value="auto">Label from reading (not checked)</option><option value="ok">Checked</option><option value="dis">Reader disagrees with label (check these)</option></select>
+        <select id="trSrc" title="Where the images come from"><option value="">All sources</option><option value="measure">Saved when measuring</option><option value="import">Imported</option></select>
+        <span class="spacer"></span>
+        <label class="tb file" title="One character per image file. The label comes from the folder name (A/001.png) or the file name (A_001.png)">⬆ Images…<input type="file" id="trImpFiles" accept="image/*" multiple hidden></label>
+        <label class="tb file" title="A folder with one sub-folder per character: A/, B/, 0/ …">⬆ Folder…<input type="file" id="trImpDir" webkitdirectory multiple hidden></label>
+        <label class="tb file" title="Character data or a trained reader exported from PhotoMeasure (.json)">⬆ Data / reader…<input type="file" id="trImpJson" accept=".json,application/json" hidden></label>
+        <button class="tb" id="trExport" title="All character images (with labels) in one file: backup, or move to another PC">⬇ Export data</button>
+      </div>
+      <div class="toolbar trCounts" id="trCounts"></div>
+      <div class="toolbar">
+        <span id="trSelInfo" class="small">0 selected</span>
+        <button class="tb" id="trSelAll">Select all shown</button><button class="tb" id="trSelNone">None</button>
+        <span class="sep"></span>
+        <label class="chk">Label <input id="trLabelIn" maxlength="1" style="width:34px;text-align:center;font-family:var(--mono)"></label>
+        <button class="tb" id="trSetLabel">Set label</button>
+        <button class="tb" id="trVerify" title="The labels of the selected images are correct">✔ Checked</button>
+        <button class="tb" id="trPredict" title="Fill the labels of the selected images that have no label (?) with the reader chosen below, as not checked">🤖 Pre-label</button>
+        <button class="tb" id="trDelete">🗑 Delete</button>
+        <span class="spacer"></span>
+        <label class="chk" title="Every photo measured with a program that has text areas saves its characters automatically"><input type="checkbox" id="trAuto"> Save characters of every measured photo</label>
+      </div>
+      <div id="trGrid" class="chgrid" tabindex="0"></div>
+      <div class="muted small" id="trHint" style="padding:6px 10px;border-top:1px solid var(--line)">Click = select · Shift+click = range · Ctrl+click = add. With images selected, type the character (A–Z, 0–9…) to label them as checked and move on · Enter = label is correct · Delete = delete · ←/→ move.</div>
+    </div>
+    <aside class="side">
+      <div class="card">
+        <h2 data-i18n="trTrain">Train a reader</h2>
+        <div class="form">
+          <label class="f full">Name<input id="trName" placeholder="e.g. Bracket laser marks"></label>
+          <label class="chk"><input type="checkbox" id="trOnlyOk" checked> Only checked labels <span class="muted">(recommended)</span></label>
+          <label class="chk"><input type="checkbox" id="trOnlyShown"> Only the images shown (filter)</label>
+          <label class="f">Min. images per character<input id="trMin" type="number" min="3" max="200" value="5"></label>
+          <label class="f">Network size<select id="trHidden"><option value="64">small (64)</option><option value="128" selected>normal (128)</option><option value="256">large (256)</option></select></label>
+          <label class="f">Max. epochs<input id="trEpochs" type="number" min="5" max="300" value="60"></label>
+          <label class="chk" title="Random small rotation, size, shift, contrast and noise each epoch: more robust, needs fewer images"><input type="checkbox" id="trAug" checked> Augmentation</label>
+        </div>
+        <div class="small" id="trClasses" style="margin-top:8px"></div>
+        <div class="row" style="margin-top:8px"><button class="btn primary" id="trGo">▶ Train</button><button class="btn" id="trStop" disabled>■ Stop</button><span class="small muted" id="trProgress"></span></div>
+        <canvas id="trChart" width="400" height="170" style="width:100%;margin-top:8px;display:none"></canvas>
+        <div id="trResult" class="small" style="margin-top:6px"></div>
+      </div>
+      <div class="card">
+        <h2 data-i18n="trReaders">Trained readers</h2>
+        <div class="scrollX"><table class="tbl" id="trModels"></table></div>
+        <div id="trModelInfo" class="small" style="margin-top:6px"></div>
+      </div>
+      <div class="card small">
+        <h2>How it works</h2>
+        <ol style="margin:0;padding-left:18px;line-height:1.5">
+          <li><b>Part program:</b> draw a text (OCR) area on the master, set the format (e.g. AAA9).</li>
+          <li><b>Measure:</b> press <b>💾 Save characters</b> (or tick "Save characters of every measured photo"). Each character becomes a 32×32 image, labelled from the reading.</li>
+          <li><b>Here:</b> check the labels (wrong labels teach wrong answers), delete bad crops. Aim for 50+ images per character from several days.</li>
+          <li><b>Train:</b> 70 % of the images teach, 15 % check progress (validation), 15 % are the final test.</li>
+          <li><b>Use:</b> in the readers table choose the text element, or in the program set <i>Reader</i> of the text element. Save the program to the library.</li>
+        </ol>
+      </div>
+    </aside>
+  </div>
+</section>
+
+<!-- ================= HELP ================= -->
+<section class="tab" id="tab-help">
+  <div class="pad help"></div>
+</section>
+
+<div class="dlg" id="loginDlg">
+  <div class="box">
+    <h2 style="margin:0 0 4px" data-i18n="appTitle">Photo Measurement</h2>
+    <div class="muted small" id="loginSub">Log in</div>
+    <div id="loginForm" class="form" style="grid-template-columns:1fr;margin-top:12px">
+      <label class="f" id="lgNameRow"><span data-i18n="lgUser">User</span><select id="lgName"></select></label>
+      <label class="f" id="lgNewRow" hidden><span data-i18n="lgAdminName">Admin name</span><input id="lgNew" autocomplete="off"></label>
+      <label class="f"><span data-i18n="lgPass">Password</span><input id="lgPass" type="password" autocomplete="current-password"></label>
+      <label class="f" id="lgPass2Row" hidden><span data-i18n="lgPass2">Repeat password</span><input id="lgPass2" type="password" autocomplete="new-password"></label>
+    </div>
+    <div class="row" style="margin-top:12px"><button class="btn primary" id="btnLogin" style="flex:1">Log in</button></div>
+    <div class="bad small" id="loginErr" style="margin-top:8px"></div>
+    <div class="small" id="lgRestoreRow" hidden style="margin-top:8px">or <label class="btn sm file"><input type="file" id="lgRestore" accept=".json,application/json" hidden>⬆ Restore a backup (users + programs)</label></div>
+  </div>
+</div>
+<div id="toast" class="toast" hidden></div>
+<script src="lib/opencv.js"></script>
+<script src="lib/zxing.min.js"></script>
+<script src="lib/exifr.umd.js"></script>
+<script src="lib/exceljs.min.js"></script>
+<script src="lib/jspdf.umd.min.js"></script>
+<script src="lib/docx.iife.js"></script>
+<script src="js/i18n.js"></script>
+<script src="js/auth.js"></script>
+<script src="js/library.js"></script>
+<script src="js/ocr.js"></script>
+<script src="js/charml.js"></script>
+<script src="js/help.js"></script>
+<script src="js/geom.js"></script>
+<script src="js/vision.js"></script>
+<script src="js/engine.js"></script>
+<script src="js/calib.js"></script>
+<script src="js/viewer.js"></script>
+<script src="js/report.js"></script>
+<script src="js/app.js"></script>
+<script src="js/camera.js"></script>
+<script src="js/timing.js"></script>
+<script src="js/calibui.js"></script>
+<script src="js/trainui.js"></script>
+</body>
+</html>

@@ -1,0 +1,47 @@
+<!doctype html><html><head><meta charset="utf-8"></head><body>
+<input type="file" id="f" multiple><pre id="log"></pre>
+<script src="lib/opencv.js"></script><script src="lib/zxing.min.js"></script><script src="lib/exifr.umd.js"></script>
+<script src="js/geom.js"></script><script src="js/vision.js"></script><script src="js/engine.js"></script>
+<script>
+async function transformed(photo, ang, k, tx, ty) {
+  const c = document.createElement('canvas'); c.width = photo.w; c.height = photo.h;
+  const x = c.getContext('2d'); x.fillStyle = '#111'; x.fillRect(0,0,c.width,c.height);
+  x.translate(c.width/2 + tx, c.height/2 + ty); x.rotate(ang*Math.PI/180); x.scale(k,k); x.drawImage(photo.canvas, -photo.w/2, -photo.h/2);
+  const b = await new Promise(r => c.toBlob(r, 'image/jpeg', 0.92));
+  return new File([b], 'rot.jpg', {type:'image/jpeg'});
+}
+window.runTest = async (spec) => {
+  const E = PM.engine, V = PM.vision, G = PM.geom;
+  const file = document.getElementById('f').files[0];
+  const m = await V.loadPhoto(file);
+  const cands = await V.findCircles(m); m.cands = cands;
+  const near = (x,y) => cands.reduce((b,c)=> Math.hypot(c.cx-x,c.cy-y) < Math.hypot(b.cx-x,b.cy-y) ? c : b);
+  const t = E.newTemplate(); t.ref.d1 = spec.d1; t.ref.d2 = spec.d2;
+  const c1 = near(...spec.r1), c2 = near(...spec.r2);
+  const cal = E.masterCalibration(t, c1, c2); cal.ok = true;
+  t.master = { frame: cal.frame, c1: cal.c1, c2: cal.c2 };
+  const mm = p => G.toMm(cal.frame, {x:p[0], y:p[1]});
+  for (const e of spec.els) {
+    const el = { id: e.id, tool: e.tool, edge: E.defaultEdge(), args: e.args };
+    if (e.tool === 'line') el.roi = { p0: mm(e.p0), p1: mm(e.p1), hw: e.hw * cal.frame.s, side: 1 };
+    if (e.tool === 'circle') { const c = mm(e.c); el.roi = { cx: c.x, cy: c.y, r: e.r * cal.frame.s, band: e.band * cal.frame.s }; }
+    t.elements.push(el);
+  }
+  t.dims = spec.dims;
+  const mp = E.masterPatch(t, m, cal.frame);
+  const r0 = await E.measure(t, m, { cal });
+  const out = { L: t.ref.L, ratioD: t.ref.ratioD, master: summ(r0) };
+  for (const [ang,k,tx,ty] of spec.xf) {
+    const f2 = await transformed(m, ang, k, tx, ty);
+    const p2 = await V.loadPhoto(f2);
+    const r = await E.measure(t, p2, { masterPatch: mp });
+    out['xf_'+ang+'_'+k] = summ(r);
+  }
+  return out;
+};
+function summ(r) {
+  const o = { status: r.status, warn: r.warnings, cal: r.cal && { ok: r.cal.ok, pxmm: +(r.cal.pxPerMm||0).toFixed(2), ang: +(r.cal.angleDeg||0).toFixed(2), sdiff: +(r.cal.scaleDiffPct||0).toFixed(2), ncc: r.cal.ncc!=null? +r.cal.ncc.toFixed(3):null } };
+  for (const [k,d] of Object.entries(r.dims||{})) o[k] = d.v != null ? +d.v.toFixed(4) : d.err;
+  return o;
+}
+</script></body></html>
