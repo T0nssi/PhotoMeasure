@@ -5,6 +5,7 @@
   "simulator": false,
   "simFolder": "sim",
   "pylonAssembly": "",
+  "mvsLibrary": "",
   "openBrowser": true,
   "defaultCamera": "",
   "autoConnect": true,

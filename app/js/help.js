@@ -113,7 +113,7 @@ ${fig(L, "18_photo_tips", "ตัวอย่างภาพถ่าย", [])}
 <p>ใช้กล้อง Basler (USB 3.0) แทนการถ่ายภาพด้วยโทรศัพท์ โปรแกรมการวัด ข้อกำหนด และรายงาน ใช้เหมือนเดิมทั้งหมด</p>
 ${step(1, "ติดตั้งครั้งเดียว และเปิดโปรแกรม", `<ol>
 <li>ติดตั้ง <b>Basler pylon Software Suite (x64)</b> แบบ <b>Developer</b> (มี .NET API) และ <b>ASP.NET Core Runtime 8 หรือใหม่กว่า (x64)</b> จาก Microsoft</li>
-<li>เสียบกล้องที่พอร์ต <b>USB 3.0</b> ของเครื่อง (ไม่ผ่าน hub) และ <b>ปิด pylon Viewer</b> (กล้องใช้ได้ทีละโปรแกรม)</li>
+<li>เสียบกล้องที่พอร์ต <b>USB 3.0</b> ของเครื่อง (ไม่ผ่าน hub) หรือสาย LAN ของกล้อง GigE และ <b>ปิด pylon Viewer / MVS</b> (กล้องใช้ได้ทีละโปรแกรม)</li>
 <li>ดับเบิลคลิก <b>Start PhotoMeasure Camera.cmd</b> → เบราว์เซอร์เปิด <b>http://127.0.0.1:5090</b> (อย่าปิดหน้าต่างดำของ Camera Bridge)</li>
 <li>ครั้งแรก: ข้อมูลผู้ใช้และโปรแกรมของ index.html แยกจากหน้านี้ ให้ <b>⬇ Backup</b> ที่แท็บผู้ใช้งานของ index.html แล้วกด <b>⬆ Restore a backup</b> ที่หน้าเข้าสู่ระบบ</li></ol>`)}
 ${step(2, "ผู้ดูแลระบบ: เชื่อมต่อกล้อง", `${fig(L, "19_cam_conn", "แท็บ 📷 กล้อง · การเชื่อมต่อ", ["แท็บ <b>📷 กล้อง</b> (แสดงเมื่อ Camera Bridge ทำงาน)", "สถานะกล้องที่หัวหน้าจอ (เขียว = เชื่อมต่อแล้ว)", "เลือกกล้อง (↻ ค้นหาใหม่)", "<b>เชื่อมต่อ</b> · ครั้งต่อไปจะเชื่อมต่อให้อัตโนมัติ และเชื่อมต่อใหม่เองถ้าสายหลุด", "ข้อมูลกล้อง: รุ่น ซีเรียล อุณหภูมิ ความเร็ว USB (ต้องเป็น SuperSpeed)", "ตั้งชื่อกล้อง เช่น Station 1"])}`)}
@@ -126,7 +126,7 @@ ${fig(L, "25_cam_measure", "แท็บ 2 · วัดภาพถ่าย", [
 ${step(7, "บันทึกภาพ", `${fig(L, "23_cam_record", "บันทึกภาพ", ["<b>💾 บันทึกภาพ</b>: บันทึกภาพที่แสดงอยู่ (หรือถ่ายใหม่)", "จำนวนภาพและช่วงเวลา สำหรับบันทึกต่อเนื่อง (ใช้ทดสอบความซ้ำของการวัด)", "<b>● บันทึกต่อเนื่อง</b> / ■ หยุด", "บันทึกอัตโนมัติหลังวัด: ทุกภาพ หรือเฉพาะ NG (ภาพ และ/หรือ ภาพผลการวัด)", "ชื่อไฟล์: {program} {serial} {status} {date} {time} {n} … และโฟลเดอร์ (แยกตามวัน)", "ภาพที่บันทึกไว้: เปิดดู หรือกด <b>วัด</b> เพื่อวัดซ้ำ"])}`)}
 <table class="tbl wi-tbl"><tr><th>อาการ</th><th>สาเหตุที่เป็นไปได้</th><th>วิธีแก้</th></tr>
 <tr><td>ไม่มีแท็บ 📷 กล้อง</td><td>Camera Bridge ไม่ได้เปิด</td><td>ดับเบิลคลิก Start PhotoMeasure Camera.cmd</td></tr>
-<tr><td>ไม่พบกล้อง</td><td>pylon Viewer เปิดอยู่ · สาย USB · ไฟเลี้ยง</td><td>ปิด pylon Viewer · เสียบสายใหม่ที่ USB 3.0 · กด ↻</td></tr>
+<tr><td>ไม่พบกล้อง</td><td>pylon Viewer / MVS เปิดอยู่ · สาย USB / LAN · ไฟเลี้ยง</td><td>ปิด pylon Viewer / MVS · เสียบสายใหม่ที่ USB 3.0 · กล้อง GigE: ตั้ง IP ให้อยู่วงเดียวกับการ์ดแลน (ใน MVS) · กด ↻</td></tr>
 <tr><td>pylon: Basler.Pylon.dll not found</td><td>ติดตั้ง pylon ไม่ครบ (.NET API)</td><td>ติดตั้ง pylon แบบ Developer · เปิด Diagnostics แล้วส่งให้ผู้ดูแล</td></tr>
 <tr><td>No image from the camera (timeout)</td><td>Trigger mode = On · exposure นานมาก</td><td>ตั้ง Trigger mode = Off · ลด exposure</td></tr>
 <tr><td>USB High speed (USB 2)</td><td>เสียบที่พอร์ต USB 2.0 หรือผ่าน hub</td><td>ใช้พอร์ต USB 3.0 (สีน้ำเงิน) ที่ตัวเครื่อง</td></tr></table>
@@ -276,7 +276,7 @@ ${fig(L, "18_photo_tips", "Photo examples", [])}
 <p>A Basler camera (USB 3.0) replaces the phone photos. Part programs, specifications and reports work exactly as before.</p>
 ${step(1, "Install once, then start", `<ol>
 <li>Install the <b>Basler pylon Software Suite (x64)</b>, profile <b>Developer</b> (includes the .NET API), and the Microsoft <b>ASP.NET Core Runtime 8 or newer (x64)</b>.</li>
-<li>Plug the camera into a <b>USB 3.0</b> port of the PC (no hub) and <b>close pylon Viewer</b> (only one program can use the camera).</li>
+<li>Plug the camera into a <b>USB 3.0</b> port of the PC (no hub), or a GigE camera into its network port, and <b>close pylon Viewer / MVS</b> (only one program can use the camera).</li>
 <li>Double-click <b>Start PhotoMeasure Camera.cmd</b> → the browser opens <b>http://127.0.0.1:5090</b> (keep the black Camera Bridge window open).</li>
 <li>First time: users and programs of index.html are kept separately. Use <b>⬇ Backup</b> in the Users tab of index.html, then <b>⬆ Restore a backup</b> on this login page.</li></ol>`)}
 ${step(2, "Admin: connect the camera", `${fig(L, "19_cam_conn", "Tab 📷 Camera · connection", ["<b>📷 Camera</b> tab (shown when the Camera Bridge runs)", "Camera state in the header (green = connected)", "Choose the camera (↻ search again)", "<b>Connect</b> · next time it connects automatically and reconnects after unplugging", "Camera info: model, serial, temperature, USB speed (must be SuperSpeed)", "Camera name, e.g. Station 1"])}`)}
@@ -289,7 +289,7 @@ ${fig(L, "25_cam_measure", "Tab 2 · Measure", ["<b>📷 Grab</b>: camera images
 ${step(7, "Record images", `${fig(L, "23_cam_record", "Record images", ["<b>💾 Save image</b>: saves the image on the screen (or a new grab)", "Number of images and interval for a sequence (repeatability tests)", "<b>● Record sequence</b> / ■ Stop", "Auto-save after measuring: every image or NG only (image and/or result picture)", "File name {program} {serial} {status} {date} {time} {n} … and folder (one sub-folder per day)", "Recorded images: open, or <b>Measure</b> again"])}`)}
 <table class="tbl wi-tbl"><tr><th>Symptom</th><th>Possible cause</th><th>Action</th></tr>
 <tr><td>No 📷 Camera tab</td><td>Camera Bridge not running</td><td>double-click Start PhotoMeasure Camera.cmd</td></tr>
-<tr><td>No camera found</td><td>pylon Viewer open · cable · power</td><td>close pylon Viewer · re-plug into USB 3.0 · press ↻</td></tr>
+<tr><td>No camera found</td><td>pylon Viewer / MVS open · cable · power</td><td>close pylon Viewer / MVS · re-plug into USB 3.0 · GigE camera: put its IP in the subnet of the network card (in MVS) · press ↻</td></tr>
 <tr><td>pylon: Basler.Pylon.dll not found</td><td>pylon installed without the .NET API</td><td>install pylon with the Developer profile · open Diagnostics and send it to the admin</td></tr>
 <tr><td>No image from the camera (timeout)</td><td>Trigger mode = On · very long exposure</td><td>set Trigger mode = Off · shorter exposure</td></tr>
 <tr><td>USB High speed (USB 2)</td><td>USB 2.0 port or hub</td><td>use a blue USB 3.0 port on the PC</td></tr></table>

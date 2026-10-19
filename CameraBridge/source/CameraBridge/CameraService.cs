@@ -63,7 +63,7 @@ public sealed class CameraService
         var info = string.IsNullOrEmpty(id)
             ? cams.FirstOrDefault(c => !string.IsNullOrEmpty(_cfg.DefaultCamera) && c.Serial == _cfg.DefaultCamera) ?? cams.FirstOrDefault(c => c.Driver != "sim") ?? cams.FirstOrDefault()
             : cams.FirstOrDefault(c => c.Id == id || c.Serial == id);
-        if (info == null) throw new BridgeException(cams.Count == 0 ? "No camera found. Check the USB 3.0 cable and that pylon Viewer is closed." : $"Camera {id} not found.");
+        if (info == null) throw new BridgeException(cams.Count == 0 ? "No camera found. Check the cable (USB 3.0 / network) and that pylon Viewer and the MVS client are closed." : $"Camera {id} not found.");
         if (_info?.Id == info.Id && _dev != null) return Status();
         Close(false);
         var drv = _drivers.First(d => d.Name == info.Driver);
@@ -354,10 +354,13 @@ public sealed class CameraService
         return new { ok = true, features = GetFeatures() };
     }
 
+    /// <summary>Extension of the camera's settings file: .mfs (Hikrobot MVS) or .pfs (Basler pylon, simulator).</summary>
+    public string ConfigExt => _info?.Driver == "hikrobot" ? ".mfs" : ".pfs";
+
     public byte[] SaveConfig()
     {
         var dev = _dev ?? throw new BridgeException("No camera connected.");
-        var tmp = Path.Combine(Path.GetTempPath(), $"pm_{Guid.NewGuid():N}.pfs");
+        var tmp = Path.Combine(Path.GetTempPath(), $"pm_{Guid.NewGuid():N}{ConfigExt}");
         try { lock (_dev_lock) dev.SaveConfig(tmp); return File.ReadAllBytes(tmp); }
         finally { try { File.Delete(tmp); } catch { } }
     }
@@ -365,7 +368,7 @@ public sealed class CameraService
     public object LoadConfig(byte[] data)
     {
         var dev = _dev ?? throw new BridgeException("No camera connected.");
-        var tmp = Path.Combine(Path.GetTempPath(), $"pm_{Guid.NewGuid():N}.pfs");
+        var tmp = Path.Combine(Path.GetTempPath(), $"pm_{Guid.NewGuid():N}{ConfigExt}");
         File.WriteAllBytes(tmp, data);
         try
         {
@@ -451,7 +454,7 @@ public sealed class CameraService
         connected = _dev != null,
         camera = _info == null ? null : new
         {
-            _info.Id, _info.Driver, _info.Model, _info.Serial, _info.Vendor, _info.Interface, _info.Name,
+            _info.Id, _info.Driver, _info.Model, _info.Serial, _info.Vendor, _info.Interface, _info.Name, ip = _info.Props?.GetValueOrDefault("IpAddress"),
             open = _dev != null, acquiring = _dev?.Acquiring ?? false,
         },
         reconnecting = _dev == null && _wanted != null,

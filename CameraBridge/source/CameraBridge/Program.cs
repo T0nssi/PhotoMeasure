@@ -31,7 +31,11 @@ void OpenBrowser()
 if (diagOnly)
 {
     var pd = new PylonDriver(cfg, log);
-    Console.WriteLine(JsonSerializer.Serialize(new { bridge = version, pylon = pd.Diag(), cameras = pd.Available ? pd.Enumerate() : new List<CameraInfo>() }, BridgeConfig.Json));
+    var hd = new HikrobotDriver(cfg, log);
+    var found = new List<CameraInfo>();
+    foreach (var d in new ICameraDriver[] { pd, hd }.Where(d => d.Available))
+        try { found.AddRange(d.Enumerate()); } catch (Exception e) { log.Warn($"{d.Name}: enumerate failed: {e.Message}"); }
+    Console.WriteLine(JsonSerializer.Serialize(new { bridge = version, pylon = pd.Diag(), hikrobot = hd.Diag(), cameras = found }, BridgeConfig.Json));
     return;
 }
 
@@ -48,7 +52,7 @@ log.Info($"PhotoMeasure Camera Bridge {version} starting ({System.Runtime.Intero
 var storage = new Storage(cfg, log);
 try { storage.Cleanup(); } catch (Exception e) { log.Warn("cleanup: " + e.Message); }
 var hub = new WsHub(log);
-var drivers = new List<ICameraDriver> { new PylonDriver(cfg, log) };
+var drivers = new List<ICameraDriver> { new PylonDriver(cfg, log), new HikrobotDriver(cfg, log) };
 if (cfg.Simulator || forceSim) drivers.Add(new SimDriver(cfg.Abs(cfg.SimFolder)));
 var cam = new CameraService(drivers, storage, hub, cfg, log);
 
@@ -140,7 +144,7 @@ app.MapPost("/api/camera/userset", async (HttpRequest r) => { var b = await Body
 app.MapGet("/api/camera/config", () =>
 {
     var data = cam.SaveConfig();
-    var name = $"{(cam.Current?.Model ?? "camera").Replace(' ', '_')}_{cam.Current?.Serial}_{DateTime.Now:yyyyMMdd_HHmm}.pfs";
+    var name = $"{(cam.Current?.Model ?? "camera").Replace(' ', '_')}_{cam.Current?.Serial}_{DateTime.Now:yyyyMMdd_HHmm}{cam.ConfigExt}";
     return Results.File(data, "application/octet-stream", name);
 });
 app.MapPost("/api/camera/config", async (HttpRequest r) => Results.Json(cam.LoadConfig(await Raw(r)), J));

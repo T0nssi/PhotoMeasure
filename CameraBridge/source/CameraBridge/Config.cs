@@ -16,6 +16,8 @@ public sealed class BridgeConfig
     public string SimFolder { get; set; } = "sim";
     /// <summary>Optional full path of Basler.Pylon.dll if it is not found automatically.</summary>
     public string PylonAssembly { get; set; } = "";
+    /// <summary>Optional full path of the Hikrobot MVS runtime (MvCameraControl.dll) if it is not found automatically.</summary>
+    public string MvsLibrary { get; set; } = "";
     public bool OpenBrowser { get; set; } = true;
     /// <summary>Camera to connect at start (serial number); empty = first camera found.</summary>
     public string DefaultCamera { get; set; } = "";

@@ -8,6 +8,7 @@ PM.camera = (() => {
   const BASE = location.protocol.startsWith("http") ? "" : "http://127.0.0.1:5090";
   const GROUPS = ["Exposure", "Gain", "Colour", "Image area", "Timing", "Output"];
   const AUTO = { ExposureAuto: "exposure", GainAuto: "gain", BalanceWhiteAuto: "balance" };
+  const DRIVER_NAMES = { pylon: "Basler pylon", hikrobot: "Hikrobot MVS", sim: "Simulator" };
   const PROFILE = ["PixelFormat", "BinningHorizontal", "BinningVertical", "DecimationHorizontal", "DecimationVertical", "ReverseX", "ReverseY", "Width", "Height", "OffsetX", "OffsetY", "CenterX", "CenterY", "ShutterMode",
     "AcquisitionFrameRateEnable", "AcquisitionFrameRate", "ExposureAuto", "ExposureTime", "GainAuto", "Gain", "BlackLevel", "GammaEnable", "Gamma", "BalanceWhiteAuto", "LightSourcePreset",
     "BalanceRatio:Red", "BalanceRatio:Green", "BalanceRatio:Blue", "TriggerMode", "TriggerSource", "TriggerActivation", "TriggerDelay", "LineSource:Line2", "LineInverter:Line2"];
@@ -33,6 +34,8 @@ PM.camera = (() => {
     return ct.includes("json") ? r.json() : r.text();
   }
   const camOn = () => !!(st.cam && st.cam.connected);
+  const hwDrivers = () => (st.bridge?.drivers || []).filter(d => d.name !== "sim");
+  const cfgExt = () => st.cam?.camera?.driver === "hikrobot" ? ".mfs" : ".pfs"; // camera settings file: Hikrobot MVS / Basler pylon
   const feat = n => st.feats.find(f => f.name === n);
 
   // ---------------- connection to the bridge ----------------
@@ -95,7 +98,7 @@ PM.camera = (() => {
     $("#cConnState").innerHTML = !has ? "Camera Bridge not running." :
       on ? `<span class="ok">● ${esc(t("camConnected"))}</span> <b>${esc(c.camera.name || c.camera.model)}</b> · ${esc(c.camera.serial)} · ${esc(c.camera.interface)}${c.trigger !== "free" ? ` · trigger: ${esc(c.trigger)}` : ""}`
         : c?.reconnecting ? `<span class="warn">● reconnecting…</span> ${esc(c.camera?.model || "")}` : `<span class="warn">● ${esc(t("camNotConnected"))}</span>`;
-    $("#cConnState").innerHTML += has ? `<div class="muted">Bridge ${esc(st.bridge.version)} · ${esc(st.bridge.runtime || "")}${(st.bridge.drivers || []).filter(d => !d.available && d.name === "pylon").map(d => `<br><span class="warn">pylon: ${esc(d.error)}</span>`).join("")}</div>` : "";
+    $("#cConnState").innerHTML += has ? `<div class="muted">Bridge ${esc(st.bridge.version)} · ${esc(st.bridge.runtime || "")}${hwDrivers().some(d => d.available) ? "" : hwDrivers().map(d => `<br><span class="warn">${esc(d.name)}: ${esc(d.error)}</span>`).join("")}</div>` : "";
     $("#cDiag").href = BASE + "/api/diag";
     $("#cHint").textContent = !has ? "" : on ? (st.frameCanvas || st.still ? "" : st.liveOn ? "Waiting for images…" : "Live view is off. Press Live or Grab.") : "No camera connected." + (A.isAdmin() ? " Choose the camera and press Connect." : " Ask an admin to connect the camera.");
     $("#cLive").classList.toggle("on", st.liveOn);
@@ -110,13 +113,15 @@ PM.camera = (() => {
       if (f("DeviceFirmwareVersion")) rows.push(["Firmware", f("DeviceFirmwareVersion")]);
       if (f("DeviceTemperature") != null) rows.push(["Temperature", (+f("DeviceTemperature")).toFixed(1) + " °C"]);
       let usb = f("BslUSBSpeedMode");
-      if (!usb && f("DeviceLinkSpeed")) usb = +f("DeviceLinkSpeed") >= 2e8 ? "SuperSpeed (USB 3)" : "High speed (USB 2)";
+      if (!usb && f("DeviceLinkSpeed") && /usb/i.test(c.interface || "")) usb = +f("DeviceLinkSpeed") >= 2e8 ? "SuperSpeed (USB 3)" : "High speed (USB 2)";
       if (usb) rows.push(["USB", /high/i.test(usb) && !/super/i.test(usb) ? `<span class="bad">${esc(usb)} – use a USB 3.0 port!</span>` : esc(usb)]);
-      rows.push(["Driver", c.driver === "sim" ? "Simulator" : "Basler pylon"]);
+      rows.push(["Driver", DRIVER_NAMES[c.driver] || c.driver]);
+      if (c.ip) rows.push(["IP address", c.ip]);
       if (st.stats) rows.push(["Image", `${st.stats.w} × ${st.stats.h} px · ${esc(st.stats.pixelFormat || "")}`]);
     }
     $("#cInfo").innerHTML = rows.map(([k, v]) => `<tr><td class="muted">${k}</td><td>${typeof v === "string" && v.startsWith("<span") ? v : esc(v)}</td></tr>`).join("");
     if (c && document.activeElement !== $("#cName")) $("#cName").value = c.name || "";
+    $$(".cfgExt").forEach(e => e.textContent = cfgExt());
   }
 
   async function refreshCams() {
@@ -401,7 +406,7 @@ PM.camera = (() => {
     catch (e) { A.toast(e.message, true); }
   }
   $("#cPfsOut").addEventListener("click", async () => {
-    try { const b = await api("/api/camera/config", { blob: true }); const c = st.cam?.camera; A.download(b, `${A.safeName(c?.model || "camera")}_${c?.serial || ""}_${new Date().toISOString().slice(0, 10)}.pfs`); }
+    try { const b = await api("/api/camera/config", { blob: true }); const c = st.cam?.camera; A.download(b, `${A.safeName(c?.model || "camera")}_${c?.serial || ""}_${new Date().toISOString().slice(0, 10)}${cfgExt()}`); }
     catch (e) { A.toast(e.message, true); }
   });
   $("#cPfsIn").addEventListener("change", async e => {

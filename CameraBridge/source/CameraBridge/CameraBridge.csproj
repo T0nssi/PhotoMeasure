@@ -4,7 +4,8 @@
     Framework-dependent build: needs the ASP.NET Core Runtime 8 or newer (x64) on the PC.
     RollForward=Major lets it run on .NET 9/10 too (.NET 8 support ends Nov 2026).
     The Basler pylon .NET API is NOT referenced at build time: it is loaded at run time
-    from the pylon installation (see Drivers/PylonDriver.cs).
+    from the pylon installation (see Drivers/PylonDriver.cs). The same goes for the
+    Hikrobot MVS runtime MvCameraControl.dll (see Drivers/HikrobotDriver.cs).
   -->
   <PropertyGroup>
     <OutputType>Exe</OutputType>
@@ -14,7 +15,7 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <AssemblyName>CameraBridge</AssemblyName>
     <RootNamespace>CameraBridge</RootNamespace>
-    <Version>0.5.3</Version>
+    <Version>0.6.0</Version>
     <InvariantGlobalization>false</InvariantGlobalization>
     <ServerGarbageCollection>false</ServerGarbageCollection>
     <PlatformTarget>AnyCPU</PlatformTarget>

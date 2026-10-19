@@ -38,6 +38,7 @@ PhotoMeasure\
 ## Industrial camera (v0.5)
 
 A Basler USB 3.0 camera (tested target: acA4600-10uc) is connected through the **Camera Bridge**, a small local .NET program in `..\CameraBridge`. It uses the Basler pylon .NET API and serves this app at `http://127.0.0.1:5090` (this PC only).
+Since bridge 0.6.0 it also connects **Hikrobot (Hikvision machine vision) GigE / USB3 cameras** through the Hikrobot MVS runtime. See `..\CameraBridge\README.md`.
 
 | Function | Where | Who |
 |---|---|---|

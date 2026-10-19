@@ -261,11 +261,13 @@
         let s;
         try { s = await (await fetch(base + "/api/status")).json(); }
         catch (e) { return { result: "INFO", details: "not running (normal when you only use phone photos) / ไม่ได้เปิด Camera Bridge" }; }
-        const pylon = (s.drivers || []).find(d => d.name === "pylon");
+        const hw = (s.drivers || []).filter(d => d.name !== "sim");
         const cam = s.camera?.camera;
+        // PASS when at least one camera driver (Basler pylon or Hikrobot MVS) is loaded; the other one may be missing
+        const drv = hw.map(d => `${esc(d.name)}: ${d.available ? "loaded" : (hw.some(x => x.available) ? "not installed" : "<span class='FAIL'>" + esc(d.error || "not available") + "</span>")}`).join(" · ");
         return {
-          result: pylon?.available ? "PASS" : "FAIL", status: s,
-          details: `bridge ${esc(s.version)} · ${esc(s.runtime)} · pylon: ${pylon?.available ? "loaded" : "<span class='FAIL'>" + esc(pylon?.error || "not available") + "</span>"} · camera: ${cam ? esc(cam.model + " " + cam.serial) + (s.camera.connected ? " connected" : " not connected") : "none"} · disk free ${s.disk?.freeGB} GB`,
+          result: hw.some(d => d.available) ? "PASS" : "FAIL", status: s,
+          details: `bridge ${esc(s.version)} · ${esc(s.runtime)} · ${drv} · camera: ${cam ? esc(cam.model + " " + cam.serial) + (s.camera.connected ? " connected" : " not connected") : "none"} · disk free ${s.disk?.freeGB} GB`,
         };
       });
       if ($("#optGrab").checked) {
