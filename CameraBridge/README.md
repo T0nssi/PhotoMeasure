@@ -63,9 +63,9 @@ The functions match the requirements in the integration plan:
 1. **Camera setting.**
    - Choose a camera and connect or disconnect.
    - After an unplug the bridge reconnects automatically, and at start it connects to the default camera.
-   - The info table shows model, serial, firmware, temperature and USB speed. It warns when the camera runs at USB 2 speed.
+   - The info table shows model, serial, firmware, temperature, driver, and the USB speed (or the IP address of a GigE camera). It warns when a USB camera runs at USB 2 speed.
    - You can give each camera a name.
-   - Export or import the camera settings as a pylon `.pfs` file, which pylon Viewer can also read.
+   - Export or import the camera settings as a file: pylon `.pfs` for Basler (pylon Viewer can also read it) or MVS `.mfs` for Hikrobot (the MVS client can also read it).
    - Save or load the camera's user sets, and choose the start-up set.
 2. **Camera setup.**
    - Settings: exposure (time, auto once), gain, black level, gamma, pixel format, white balance (R/G/B, auto once, light preset), image area (width, height, offsets, center, Reverse X/Y, binning, decimation), shutter mode (Rolling / Global reset release), frame-rate limit, trigger (mode, source, edge, delay) and Line2 output.

@@ -70,18 +70,18 @@
 <tr><td><b>Visual Studio Code</b> (ตัวติดตั้ง “System Installer x64”)</td><td>เปิดและแก้ไขโค้ด ค้นหาข้อความในทุกไฟล์ (Ctrl+Shift+F) มีเลขบรรทัด และขีดเส้นใต้จุดที่พิมพ์ผิด</td><td>แนะนำ (ใช้ Notepad ได้ แต่ยากกว่า)</td></tr>
 <tr><td><b>Git for Windows</b> (หรือ GitHub Desktop)</td><td>เก็บประวัติทุกการแก้ไข ดูว่าแก้อะไรไป และย้อนกลับได้</td><td>แนะนำมาก</td></tr>
 <tr><td><b>.NET 8 SDK x64</b> (หรือใหม่กว่า)</td><td>สร้าง Camera Bridge ใหม่ เมื่อแก้ไฟล์ <code>.cs</code></td><td>เฉพาะเมื่อแก้ส่วนกล้อง</td></tr>
-<tr><td>Basler pylon (Developer) + ASP.NET Core Runtime</td><td>ใช้กล้อง (มีอยู่แล้วที่เครื่องสถานี)</td><td>เฉพาะเครื่องที่ต่อกล้อง</td></tr></table>
+<tr><td>Basler pylon (Developer) หรือ Hikrobot MVS + ASP.NET Core Runtime</td><td>ใช้กล้อง (ติดตั้งเฉพาะซอฟต์แวร์ของยี่ห้อกล้องที่ใช้ มีอยู่แล้วที่เครื่องสถานี)</td><td>เฉพาะเครื่องที่ต่อกล้อง</td></tr></table>
 
 <h2 id="t2">2. โปรแกรมทำงานอย่างไร</h2>
 <p>โปรแกรมมี 2 ส่วน:</p>
 <ul>
 <li><b>แอปในเบราว์เซอร์</b> (โฟลเดอร์ <code>app</code>) – หน้าจอทั้งหมด การวัด รายงาน เขียนด้วย <b>HTML + CSS + JavaScript</b> แก้ไฟล์แล้วกด <b>F5</b> ในเบราว์เซอร์ก็เห็นผลทันที <b>ไม่ต้องคอมไพล์</b></li>
-<li><b>Camera Bridge</b> (โฟลเดอร์ <code>CameraBridge</code>) – โปรแกรมเล็กใน Windows ที่คุยกับกล้องผ่าน pylon เขียนด้วย <b>C#</b> ถ้าแก้ไฟล์ <code>.cs</code> ต้องสร้างใหม่ (หัวข้อ 10)</li>
+<li><b>Camera Bridge</b> (โฟลเดอร์ <code>CameraBridge</code>) – โปรแกรมเล็กใน Windows ที่คุยกับกล้องผ่าน pylon (Basler) หรือ MVS (Hikrobot) เขียนด้วย <b>C#</b> ถ้าแก้ไฟล์ <code>.cs</code> ต้องสร้างใหม่ (หัวข้อ 10)</li>
 </ul>
 <p><b>เส้นทางของการวัด 1 ภาพ</b></p>
 <div class="flow"><span class="b">ภาพ (ไฟล์ / กล้อง)</span>→<span class="b">vision.js<br>โหลดภาพ หาวงกลม</span>→<span class="b">engine.js<br>หา REF → วัดขอบ → คำนวณขนาด → OK/NG</span>→<span class="b">app.js<br>แสดงผล</span>→<span class="b">report.js<br>Excel/PDF/Word</span></div>
 <p><b>เส้นทางของภาพจากกล้อง</b></p>
-<div class="flow"><span class="b">ปุ่ม 📷 ถ่ายภาพ<br>camera.js</span>→<span class="b">Camera Bridge<br>/api/grab</span>→<span class="b">CameraService.cs</span>→<span class="b">PylonDriver.cs → pylon → กล้อง</span>→<span class="b">ภาพกลับมาที่ app.js แล้ววัดเหมือนภาพถ่าย</span></div>
+<div class="flow"><span class="b">ปุ่ม 📷 ถ่ายภาพ<br>camera.js</span>→<span class="b">Camera Bridge<br>/api/grab</span>→<span class="b">CameraService.cs</span>→<span class="b">PylonDriver.cs → pylon → กล้อง Basler<br>HikrobotDriver.cs → MVS → กล้อง Hikrobot</span>→<span class="b">ภาพกลับมาที่ app.js แล้ววัดเหมือนภาพถ่าย</span></div>
 <p><b>ข้อมูลเก็บที่ไหน:</b> ผู้ใช้และโปรแกรมการวัดเก็บใน <b>เบราว์เซอร์</b> (สำรองด้วยปุ่ม ⬇ Backup ที่แท็บผู้ใช้งาน) · ภาพจากกล้อง ภาพที่บันทึก และ log เก็บที่ <code>CameraBridge\data</code> · ค่าตั้งของ Bridge อยู่ที่ <code>CameraBridge\bridge.config.json</code></p>
 
 <h2 id="t3">3. แผนที่โค้ด: ไฟล์ไหนทำอะไร</h2>
@@ -106,6 +106,7 @@
 <tr><td><code>CameraBridge/bridge.config.json</code></td><td>ค่าตั้ง Bridge: พอร์ต โฟลเดอร์ ชื่อไฟล์ จำนวนวันเก็บ (ไม่ต้องสร้างใหม่)</td><td class="risk1">ต่ำ</td></tr>
 <tr><td><code>CameraBridge/source/CameraBridge/*.cs</code></td><td>โค้ด Camera Bridge (ต้องสร้างใหม่หลังแก้)</td><td class="risk2">กลาง</td></tr>
 <tr><td><code>…/Drivers/PylonDriver.cs</code></td><td>การคุยกับกล้องผ่าน pylon</td><td class="risk3">สูง</td></tr>
+<tr><td><code>…/Drivers/HikrobotDriver.cs</code></td><td>การคุยกับกล้อง Hikrobot ผ่าน MVS (MvCameraControl.dll)</td><td class="risk3">สูง</td></tr>
 </table>
 
 <h2 id="t4">4. วิธีหาจุดที่ต้องแก้</h2>
@@ -176,7 +177,7 @@ git revert &lt;รหัส&gt;                  (ยกเลิก commit ท�
 <h3>6.11 เพิ่มค่าตั้งกล้องในแผงตั้งค่า <span class="risk2">กลาง</span></h3>
 <p><code>CameraBridge/source/CameraBridge/Drivers/Camera.cs</code> รายการ <code>Features.All</code> เพิ่มบรรทัด เช่น<br>
 <code>FeatureDef.F("SensorReadoutTime", "Timing", "Sensor readout (µs)"),</code><br>
-ชื่อแรกต้องตรงกับชื่อใน pylon Viewer (Feature name) แล้วสร้าง Bridge ใหม่ (หัวข้อ 10)</p>
+ชื่อแรกต้องตรงกับชื่อใน pylon Viewer หรือในโปรแกรม MVS (Feature name, ชื่อมาตรฐาน GenICam ใช้ได้ทั้งสองยี่ห้อ) แล้วสร้าง Bridge ใหม่ (หัวข้อ 10)</p>
 <h3>6.12 เพิ่ม/เปลี่ยนคอลัมน์รายงาน <span class="risk2">กลาง</span></h3>
 <p><code>report.js</code>: Excel อยู่ในฟังก์ชัน <code>xlsx(ctx)</code>, PDF ใน <code>pdf(ctx)</code>, Word ใน <code>docxReport(ctx)</code>, CSV ใน <code>csv(ctx)</code> ข้อความหัวข้อมาจาก <code>i18n.js</code></p>
 <h3>6.13 เกณฑ์ตรวจการสอบเทียบประจำวัน ±0.05 % <span class="risk2">กลาง</span></h3>
@@ -198,11 +199,12 @@ git revert &lt;รหัส&gt;                  (ยกเลิก commit ท�
 <h3>Camera Bridge</h3>
 <ol><li>อ่านหน้าต่างดำของ Bridge (WARN/ERROR)</li>
 <li>Log ทั้งหมด: <code>CameraBridge\data\logs\bridge-วันที่.log</code></li>
-<li>ดับเบิลคลิก <code>Diagnose.cmd</code> → <code>diagnostics.txt</code> (pylon, กล้อง, ข้อผิดพลาดแบบละเอียด)</li>
+<li>ดับเบิลคลิก <code>Diagnose.cmd</code> → <code>diagnostics.txt</code> (pylon, Hikrobot MVS, กล้อง, ข้อผิดพลาดแบบละเอียด)</li>
 <li>ในเบราว์เซอร์: <code>http://127.0.0.1:5090/api/status</code> และ <code>/api/diag</code></li></ol>
 <table><tr><th>อาการ</th><th>วิธีแก้</th></tr>
-<tr><td>ไม่พบกล้อง</td><td>ปิด pylon Viewer · เสียบ USB 3.0 ใหม่ · กด ↻</td></tr>
+<tr><td>ไม่พบกล้อง</td><td>ปิด pylon Viewer / MVS · เสียบ USB 3.0 ใหม่ · กล้อง GigE: ตรวจ IP ใน MVS · กด ↻</td></tr>
 <tr><td>pylon … could not be loaded</td><td>Diagnose.cmd → อ่านบรรทัด <code>tried</code> และ <code>details</code></td></tr>
+<tr><td>hikrobot: MvCameraControl.dll not found</td><td>ติดตั้ง Hikrobot MVS (x64) หรือใส่ path ใน <code>mvsLibrary</code> ของ bridge.config.json · Diagnose.cmd → ส่วน <code>hikrobot</code> บรรทัด <code>tried</code></td></tr>
 <tr><td>No image from the camera (timeout)</td><td>Trigger mode = Off · ลด exposure</td></tr>
 <tr><td>Port 5090 is in use</td><td>Bridge เปิดอยู่แล้ว หรือโปรแกรมอื่นใช้พอร์ต → เปลี่ยน <code>port</code> ใน bridge.config.json</td></tr></table>
 
@@ -211,7 +213,7 @@ git revert &lt;รหัส&gt;                  (ยกเลิก commit ท�
 <ul><li>วัดภาพตัวอย่าง 3 ภาพด้วยโปรแกรมที่กำหนดไว้ แล้วเทียบ <b>ทุกค่า</b> กับผลอ้างอิง (ระยะ/เส้นผ่านศูนย์กลาง ต่างได้ไม่เกิน 0.01 มม., ΔE 0.5, ข้อความต้องตรงทุกตัว, OK/NG ต้องตรง)</li>
 <li>สอบเทียบสถานี: แผ่น dot grid จำลอง (สเกลต้องผิดไม่เกิน 0.02 %) · ภาพชิ้นงานที่หมุน 12° และเลื่อน ต้องได้มุมและค่าเท่าเดิม · การป้องกันภาพผิดเงื่อนไข</li>
 <li>สร้างรายงาน Excel, PDF, Word, CSV</li>
-<li>ตรวจ Camera Bridge, pylon และกล้อง (ติ๊ก “ถ่ายภาพ 1 ภาพ” เพื่อทดสอบการถ่ายภาพจริง)</li></ul>
+<li>ตรวจ Camera Bridge, ไดรเวอร์กล้อง (pylon หรือ Hikrobot MVS อย่างน้อยหนึ่งตัว) และกล้อง (ติ๊ก “ถ่ายภาพ 1 ภาพ” เพื่อทดสอบการถ่ายภาพจริง)</li></ul>
 <div class="box good">ตัวอย่าง: ถ้าการคำนวณเส้นผ่านศูนย์กลางผิดไปเพียง 0.5 % (0.015 มม.) Self-Test จะขึ้น <b>FAIL</b></div>
 <p><b>เมื่อตั้งใจเปลี่ยนผลการวัด</b> (เช่น ปรับการหาขอบให้ดีขึ้น): ตรวจค่าใหม่กับเครื่องมือวัดจริง (CMM/OMM/ไมโครมิเตอร์) ก่อน แล้วกด <b>⬇ New reference…</b> จะได้ไฟล์ <code>selftest-data.js</code> ใหม่ นำไปแทนที่ <code>app/selftest/selftest-data.js</code></p>
 
@@ -239,7 +241,7 @@ git revert &lt;รหัส&gt;                  (ยกเลิก commit ท�
 <li>ดับเบิลคลิก <code>CameraBridge\Build-Bridge.cmd</code> ถ้าขึ้น <b>Build succeeded</b> แสดงว่าสำเร็จ ไฟล์ <code>CameraBridge.dll</code> ถูกแทนที่</li>
 <li>ถ้ามี error จะบอกไฟล์และบรรทัด เช่น <code>Camera.cs(52,9): error CS1002: ; expected</code> = บรรทัด 52 ขาด <code>;</code></li>
 <li>ทดสอบด้วยกล้องจำลอง: <code>Start-Simulator.cmd</code> แล้วรัน Self-Test</li></ol>
-<p>ทดสอบส่วน pylon โดยไม่มีกล้อง: โฟลเดอร์ <code>source\FakePylon</code> เป็นตัวจำลอง pylon สำหรับนักพัฒนา (ดูคำอธิบายใน CameraBridge\README.md)</p>
+<p>ทดสอบส่วน pylon โดยไม่มีกล้อง: โฟลเดอร์ <code>source\FakePylon</code> เป็นตัวจำลอง pylon สำหรับนักพัฒนา · ส่วน Hikrobot: <code>source\FakeMvs</code> เป็นตัวจำลอง MVS (ดูคำอธิบายใน CameraBridge\README.md)</p>
 
 <h2 id="t11">11. คำศัพท์</h2>
 <table><tr><th>คำ</th><th>ความหมาย</th></tr>
@@ -280,17 +282,17 @@ Three rules: <b>(1) never edit the production copy, always a copy (2) change a l
 <tr><td><b>Visual Studio Code</b> (“System Installer x64”)</td><td>open and edit code, search all files (Ctrl+Shift+F), line numbers, typos underlined</td><td>recommended (Notepad works, but harder)</td></tr>
 <tr><td><b>Git for Windows</b> (or GitHub Desktop)</td><td>history of every change, see what changed, undo</td><td>strongly recommended</td></tr>
 <tr><td><b>.NET 8 SDK x64</b> (or newer)</td><td>rebuild the Camera Bridge after editing <code>.cs</code> files</td><td>only for camera code changes</td></tr>
-<tr><td>Basler pylon (Developer) + ASP.NET Core Runtime</td><td>camera (already on the station PC)</td><td>camera PC only</td></tr></table>
+<tr><td>Basler pylon (Developer) or Hikrobot MVS + ASP.NET Core Runtime</td><td>camera (only the software of the camera brand in use; already on the station PC)</td><td>camera PC only</td></tr></table>
 
 <h2 id="e2">2. How the program works</h2>
 <ul>
 <li><b>Browser app</b> (folder <code>app</code>): all screens, measuring, reports. <b>HTML + CSS + JavaScript</b>. Save a file, press <b>F5</b> in the browser, and you see the change. <b>No compiling.</b></li>
-<li><b>Camera Bridge</b> (folder <code>CameraBridge</code>): a small Windows program that talks to the camera through pylon. <b>C#</b>. After editing a <code>.cs</code> file it must be rebuilt (section 10).</li>
+<li><b>Camera Bridge</b> (folder <code>CameraBridge</code>): a small Windows program that talks to the camera through pylon (Basler) or MVS (Hikrobot). <b>C#</b>. After editing a <code>.cs</code> file it must be rebuilt (section 10).</li>
 </ul>
 <p><b>Path of one measurement</b></p>
 <div class="flow"><span class="b">image (file / camera)</span>→<span class="b">vision.js<br>load, find circles</span>→<span class="b">engine.js<br>find REFs → scan edges → dimensions → OK/NG</span>→<span class="b">app.js<br>display</span>→<span class="b">report.js<br>Excel/PDF/Word</span></div>
 <p><b>Path of a camera image</b></p>
-<div class="flow"><span class="b">📷 Grab button<br>camera.js</span>→<span class="b">Camera Bridge<br>/api/grab</span>→<span class="b">CameraService.cs</span>→<span class="b">PylonDriver.cs → pylon → camera</span>→<span class="b">image back to app.js, measured like a photo</span></div>
+<div class="flow"><span class="b">📷 Grab button<br>camera.js</span>→<span class="b">Camera Bridge<br>/api/grab</span>→<span class="b">CameraService.cs</span>→<span class="b">PylonDriver.cs → pylon → Basler camera<br>HikrobotDriver.cs → MVS → Hikrobot camera</span>→<span class="b">image back to app.js, measured like a photo</span></div>
 <p><b>Where data lives:</b> users and programs are in the <b>browser</b> (back them up with ⬇ Backup in the Users tab) · camera shots, recorded images and logs in <code>CameraBridge\data</code> · bridge settings in <code>CameraBridge\bridge.config.json</code>.</p>
 
 <h2 id="e3">3. Code map: which file does what</h2>
@@ -314,7 +316,8 @@ Three rules: <b>(1) never edit the production copy, always a copy (2) change a l
 <tr><td><code>app/lib/</code></td><td>external libraries (OpenCV, Excel, PDF …)</td><td class="risk3">do not edit</td></tr>
 <tr><td><code>CameraBridge/bridge.config.json</code></td><td>bridge settings: port, folders, file names, keep-days (no rebuild)</td><td class="risk1">low</td></tr>
 <tr><td><code>CameraBridge/source/CameraBridge/*.cs</code></td><td>Camera Bridge code (rebuild after editing)</td><td class="risk2">medium</td></tr>
-<tr><td><code>…/Drivers/PylonDriver.cs</code></td><td>talking to the camera through pylon</td><td class="risk3">high</td></tr></table>
+<tr><td><code>…/Drivers/PylonDriver.cs</code></td><td>talking to the camera through pylon</td><td class="risk3">high</td></tr>
+<tr><td><code>…/Drivers/HikrobotDriver.cs</code></td><td>talking to a Hikrobot camera through MVS (MvCameraControl.dll)</td><td class="risk3">high</td></tr></table>
 
 <h2 id="e4">4. Finding the code to change</h2>
 <p><b>Main method: screen text → id → code</b></p>
@@ -384,7 +387,7 @@ git revert &lt;id&gt;                    (undo the commit that broke it)</pre></
 <h3>6.11 Add a camera setting to the setup panel <span class="risk2">medium</span></h3>
 <p><code>CameraBridge/source/CameraBridge/Drivers/Camera.cs</code>, list <code>Features.All</code>, add a line, e.g.<br>
 <code>FeatureDef.F("SensorReadoutTime", "Timing", "Sensor readout (µs)"),</code><br>
-The first name must be the feature name shown in pylon Viewer. Then rebuild (section 10).</p>
+The first name must be the feature name shown in pylon Viewer or the MVS client (standard GenICam names work for both brands). Then rebuild (section 10).</p>
 <h3>6.12 Report columns <span class="risk2">medium</span></h3>
 <p><code>report.js</code>: Excel in <code>xlsx(ctx)</code>, PDF in <code>pdf(ctx)</code>, Word in <code>docxReport(ctx)</code>, CSV in <code>csv(ctx)</code>. Header texts come from <code>i18n.js</code>.</p>
 <h3>6.13 Daily calibration check limit ±0.05 % <span class="risk2">medium</span></h3>
@@ -406,11 +409,12 @@ The first name must be the feature name shown in pylon Viewer. Then rebuild (sec
 <h3>Camera Bridge</h3>
 <ol><li>Read the black bridge window (WARN/ERROR).</li>
 <li>Full log: <code>CameraBridge\data\logs\bridge-&lt;date&gt;.log</code>.</li>
-<li>Double-click <code>Diagnose.cmd</code> → <code>diagnostics.txt</code> (pylon, cameras, detailed errors).</li>
+<li>Double-click <code>Diagnose.cmd</code> → <code>diagnostics.txt</code> (pylon, Hikrobot MVS, cameras, detailed errors).</li>
 <li>In the browser: <code>http://127.0.0.1:5090/api/status</code> and <code>/api/diag</code>.</li></ol>
 <table><tr><th>Symptom</th><th>Action</th></tr>
-<tr><td>no camera found</td><td>close pylon Viewer · re-plug USB 3.0 · press ↻</td></tr>
+<tr><td>no camera found</td><td>close pylon Viewer / MVS · re-plug USB 3.0 · GigE camera: check its IP in MVS · press ↻</td></tr>
 <tr><td>pylon … could not be loaded</td><td>Diagnose.cmd → read the <code>tried</code> and <code>details</code> lines</td></tr>
+<tr><td>hikrobot: MvCameraControl.dll not found</td><td>install Hikrobot MVS (x64), or set <code>mvsLibrary</code> in bridge.config.json · Diagnose.cmd → <code>hikrobot</code> part, <code>tried</code> line</td></tr>
 <tr><td>No image from the camera (timeout)</td><td>Trigger mode = Off · shorter exposure</td></tr>
 <tr><td>Port 5090 is in use</td><td>the bridge already runs, or another program uses the port → change <code>port</code> in bridge.config.json</td></tr></table>
 
@@ -419,7 +423,7 @@ The first name must be the feature name shown in pylon Viewer. Then rebuild (sec
 <ul><li>Measures 3 sample photos with a fixed program and compares <b>every value</b> with the reference (distances/diameters within 0.01 mm, ΔE 0.5, texts exactly, OK/NG exactly).</li>
 <li>Station calibration: a synthetic dot-grid plate (scale error ≤ 0.02 %) · a part image turned 12° and shifted must give the same angle and values · the blocks for wrong images.</li>
 <li>Builds Excel, PDF, Word and CSV reports.</li>
-<li>Checks the Camera Bridge, pylon and the camera (tick “Grab one camera image” to test a real grab).</li></ul>
+<li>Checks the Camera Bridge, the camera driver (pylon or Hikrobot MVS, at least one) and the camera (tick “Grab one camera image” to test a real grab).</li></ul>
 <div class="box good">Example: an error of only 0.5 % in the diameter calculation (0.015 mm) makes the Self-Test <b>FAIL</b>.</div>
 <p><b>When you change measuring results on purpose</b> (e.g. better edge detection): first check the new values with a real gauge (CMM/OMM/micrometer), then press <b>⬇ New reference…</b> and replace <code>app/selftest/selftest-data.js</code> with the downloaded file.</p>
 
@@ -447,7 +451,7 @@ The first name must be the feature name shown in pylon Viewer. Then rebuild (sec
 <li>Double-click <code>CameraBridge\Build-Bridge.cmd</code>. <b>Build succeeded</b> = done; <code>CameraBridge.dll</code> is replaced.</li>
 <li>An error names the file and line, e.g. <code>Camera.cs(52,9): error CS1002: ; expected</code> = line 52 misses a <code>;</code>.</li>
 <li>Test with the simulated camera: <code>Start-Simulator.cmd</code>, then the Self-Test.</li></ol>
-<p>Testing the pylon part without a camera: <code>source\FakePylon</code> is a stand-in of the pylon API for developers (see CameraBridge\README.md).</p>
+<p>Testing the pylon part without a camera: <code>source\FakePylon</code> is a stand-in of the pylon API for developers · Hikrobot part: <code>source\FakeMvs</code> is a stand-in of the MVS runtime (see CameraBridge\README.md).</p>
 
 <h2 id="e11">11. Glossary</h2>
 <table><tr><th>Word</th><th>Meaning</th></tr>

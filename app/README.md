@@ -32,7 +32,7 @@ PhotoMeasure\
 ## Maintenance and self-test (offline)
 
 - **`maintenance.html`** – maintenance guide in Thai and English: code map, how to find the code behind a button, safe change workflow with Git, 15 common change recipes, reading errors (F12 / bridge log / Diagnose.cmd), release checklist and rollback, rebuilding the Camera Bridge offline (`CameraBridge\Build-Bridge.cmd`).
-- **`selftest.html`** – one-click offline test: measures 3 reference photos with a fixed program and compares every value with the golden results (±0.01 mm, ΔE ±0.5, texts and OK/NG exact), tests the station calibration (synthetic dot-grid plate, a part image turned 12° and shifted, the blocks for wrong images), builds all 4 reports and checks the Camera Bridge, pylon and a camera grab. It detects e.g. a 0.5 % error in the diameter calculation. Run it before and after every change and before every release.
+- **`selftest.html`** – one-click offline test: measures 3 reference photos with a fixed program and compares every value with the golden results (±0.01 mm, ΔE ±0.5, texts and OK/NG exact), tests the station calibration (synthetic dot-grid plate, a part image turned 12° and shifted, the blocks for wrong images), builds all 4 reports and checks the Camera Bridge, the camera driver (pylon or Hikrobot MVS) and a camera grab. It detects e.g. a 0.5 % error in the diameter calculation. Run it before and after every change and before every release.
 - Both are linked in the **Users** tab.
 
 ## Industrial camera (v0.5)
@@ -42,7 +42,7 @@ Since bridge 0.6.0 it also connects **Hikrobot (Hikvision machine vision) GigE /
 
 | Function | Where | Who |
 |---|---|---|
-| Camera setting: list, connect / disconnect, auto-reconnect, info (model, serial, firmware, temperature, USB speed), camera name, `.pfs` export/import, user sets and start-up set | 📷 Camera tab → Camera card, Camera setup card | Admin |
+| Camera setting: list, connect / disconnect, auto-reconnect, info (model, serial, firmware, temperature, driver, USB speed or GigE IP), camera name, settings file export/import (Basler `.pfs`, Hikrobot `.mfs`), user sets and start-up set | 📷 Camera tab → Camera card, Camera setup card | Admin |
 | Camera setup: exposure, gain, black level, gamma, pixel format, white balance (R/G/B, *Auto once*), image area (ROI, mirror X/Y, binning), frame rate, shutter mode, trigger, Line2 output. Only settings the camera has are shown, with its real limits. Histogram with over-exposure, focus value | Camera setup card | Admin |
 | **Save to program**: camera settings are stored in the part program and applied when the program is selected; **📷 Grab master** takes the master image from the camera | Camera setup card · Program tab | Admin |
 | Live view (zoom, crosshair, grid, over-exposure in red, master overlay and master REF circles), freeze | 📷 Camera tab | All |
