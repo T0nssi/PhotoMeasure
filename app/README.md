@@ -83,6 +83,19 @@ The file version (index.html) and the Camera Bridge version (http://127.0.0.1:50
 Reading with a trained reader takes about 20–60 ms per text box (Tesseract: 0.3–2 s). The format still applies: each position chooses the most likely allowed character; extra blobs are dropped by the format length.
 Limits: one text line per box gives the best result (two lines without anything between them work with *Lines: several*); the reader answers only with characters it was trained on.
 
+## Host mode – inside CodeVerifyStation (P0)
+
+`js/host.js` lets another Windows program show PhotoMeasure in an embedded **WebView2** and use it as its measuring
+engine (CodeVerifyStation, page 📏 Measure). It is active only inside WebView2 (`window.chrome.webview`); opened
+normally, nothing changes.
+
+- Messages (JSON, protocol 1): `hello` → `ready`; `measure {id, program | programUrl, image, name?, maxDim?, serial?}`
+  → `result {id, ok, result}` with status, serial, 2D code, every dimension (value, unit, low / high, status),
+  warnings and the time per step; `selftest {id}` measures the 3 golden photos of the self-test the same way.
+- **`test_host.html`** checks this message path (serve the `app` folder over http, e.g. `python -m http.server`,
+  because it loads the sample images with `fetch`): all lines must be PASS.
+- Concept and plan: `docs/PHOTOMEASURE_INTEGRATION_CONCEPT.md` in the ScannerMachineReportAutomation repository.
+
 ## Processing time (v0.5.3)
 
 Every measured image gets a time per step (ms): queue, grab / wait / convert (camera: button → image, from the bridge), transfer, load, circles, align, prep, tools, ocr, code, judge, sn, display, **total** (in the app) and **cycle** (camera: button → result).
