@@ -83,18 +83,29 @@ The file version (index.html) and the Camera Bridge version (http://127.0.0.1:50
 Reading with a trained reader takes about 20–60 ms per text box (Tesseract: 0.3–2 s). The format still applies: each position chooses the most likely allowed character; extra blobs are dropped by the format length.
 Limits: one text line per box gives the best result (two lines without anything between them work with *Lines: several*); the reader answers only with characters it was trained on.
 
-## Host mode – inside CodeVerifyStation (P0)
+## Host mode – inside CodeVerifyStation
 
 `js/host.js` lets another Windows program show PhotoMeasure in an embedded **WebView2** and use it as its measuring
 engine (CodeVerifyStation, page 📏 Measure). It is active only inside WebView2 (`window.chrome.webview`); opened
-normally, nothing changes.
+normally, nothing changes (own login, own library, Camera Bridge).
 
-- Messages (JSON, protocol 1): `hello` → `ready`; `measure {id, program | programUrl, image, name?, maxDim?, serial?}`
-  → `result {id, ok, result}` with status, serial, 2D code, every dimension (value, unit, low / high, status),
-  warnings and the time per step; `selftest {id}` measures the 3 golden photos of the self-test the same way.
-- **`test_host.html`** checks this message path (serve the `app` folder over http, e.g. `python -m http.server`,
-  because it loads the sample images with `fetch`): all lines must be PASS.
-- Concept and plan: `docs/PHOTOMEASURE_INTEGRATION_CONCEPT.md` in the ScannerMachineReportAutomation repository.
+Inside the host:
+
+- **No own login:** the user and role come from the host (address `?host=cvs&user=…&role=admin|operator`, then
+  `session` messages). Log out, the Users tab and the login dialog are hidden.
+- **Programs are files of the host:** *Save to library*, *Open*, *Delete* go to the host (`lib.*` calls); the
+  host keeps them as normal `.pm.json` files (CodeVerifyStation: `Data\config\measure`).
+- **Camera of the host:** *📷 Grab* and *📷 Grab master* ask the host for an image (`cam.*` calls); the Camera tab
+  and the Camera Bridge are not used.
+
+Messages (JSON, protocol 2): `hello` → `ready`; `session {user}`; `measure {id, program | programUrl, image, name?,
+maxDim?, serial?}` → `result {id, ok, result}` with status, serial, 2D code, every dimension (value, unit, low / high,
+status), warnings and the time per step; `selftest {id}` measures the 3 golden photos the same way;
+page → host `call {id, method, args}` → `reply {id, ok, result | error}`.
+
+**`test_host.html`** checks the measuring messages (serve the `app` folder over http, e.g. `python -m http.server`,
+because it loads the sample images with `fetch`): all lines must be PASS. Concept and plan:
+`docs/PHOTOMEASURE_INTEGRATION_CONCEPT.md` in the ScannerMachineReportAutomation repository.
 
 ## Processing time (v0.5.3)
 

@@ -6,6 +6,8 @@ PM.camera = (() => {
   const $ = s => document.querySelector(s), $$ = s => [...document.querySelectorAll(s)];
   const esc = A.esc, t = k => I.t(k);
   const BASE = location.protocol.startsWith("http") ? "" : "http://127.0.0.1:5090";
+  // Host mode (inside CodeVerifyStation, js/host.js): the host owns the camera; no Camera Bridge, no Camera tab.
+  const HOST = !!(PM.host && PM.host.active);
   const GROUPS = ["Exposure", "Gain", "Colour", "Image area", "Timing", "Output"];
   const AUTO = { ExposureAuto: "exposure", GainAuto: "gain", BalanceWhiteAuto: "balance" };
   const PROFILE = ["PixelFormat", "BinningHorizontal", "BinningVertical", "DecimationHorizontal", "DecimationVertical", "ReverseX", "ReverseY", "Width", "Height", "OffsetX", "OffsetY", "CenterX", "CenterY", "ShutterMode",
@@ -32,7 +34,7 @@ PM.camera = (() => {
     const ct = r.headers.get("content-type") || "";
     return ct.includes("json") ? r.json() : r.text();
   }
-  const camOn = () => !!(st.cam && st.cam.connected);
+  const camOn = () => (HOST ? !!st.hostCam?.connected : !!(st.cam && st.cam.connected));
   const feat = n => st.feats.find(f => f.name === n);
 
   // ---------------- connection to the bridge ----------------
@@ -77,6 +79,16 @@ PM.camera = (() => {
 
   // ---------------- UI state ----------------
   function updateUi() {
+    if (HOST) {
+      const on = camOn(), chip = $("#camChip");
+      $("#tabCameraBtn").hidden = true;
+      $$(".camOnly").forEach(b => (b.hidden = !on));
+      $("#btnGrabMaster").hidden = !on || !A.isAdmin();
+      $("#mGrab").disabled = !on || st.grabbing;
+      chip.hidden = !st.hostCam;
+      if (st.hostCam) { chip.textContent = on ? `📷 ${st.hostCam.name || "camera"}` : "📷 no camera"; chip.className = "pill camChip " + (on ? "on" : "off"); chip.title = "Camera of CodeVerifyStation"; }
+      return;
+    }
     const has = !!st.bridge, on = camOn(), c = st.cam;
     $("#tabCameraBtn").hidden = !has;
     if (!has && A.activeTab() === "camera") A.showTab("measure");
@@ -372,6 +384,7 @@ PM.camera = (() => {
     $("#cFromProg").disabled = !c || !camOn();
   }
   async function storeProfile() {
+    if (HOST) return;   // camera settings belong to CodeVerifyStation (Basler Setting page)
     if (!st.feats.length) await loadFeatures();
     const cam = st.cam?.camera;
     S.t.camera = { model: cam?.model || "", serial: cam?.serial || "", saved: new Date().toISOString(), by: S.user?.name || "", values: profileValues() };
@@ -435,7 +448,7 @@ PM.camera = (() => {
     st.grabbing = true; ["#cGrab", "#mGrab"].forEach(s => ($(s).disabled = true));
     try {
       const t0 = performance.now();
-      const shot = await api("/api/grab", { body: {} });
+      const shot = HOST ? await PM.host.call("cam.grab", {}, 30000) : await api("/api/grab", { body: {} });
       return await handleShot(shot, { measure: opt.measure ?? $("#cMeasure").checked, show: A.activeTab() === "camera", t0, grabMs: performance.now() - t0 });
     } catch (e) { A.toast(e.message, true); return null; }
     finally { st.grabbing = false; updateUi(); }
@@ -445,7 +458,7 @@ PM.camera = (() => {
     // hardware-triggered image: the cycle starts when the bridge received the frame
     if (t0 == null) t0 = performance.now() - Math.max(0, Date.now() - Date.parse(shot.time));
     const tb = performance.now();
-    const blob = await api(shot.url, { blob: true });
+    const blob = HOST ? await hostBlob(shot.url) : await api(shot.url, { blob: true });
     const steps = { transfer: performance.now() - tb };
     if (grabMs != null) steps.grab = grabMs;
     if (shot.timing) { if (shot.timing.waitMs != null) steps.wait = shot.timing.waitMs; if (shot.timing.convertMs != null) steps.convert = shot.timing.convertMs; }
@@ -459,7 +472,7 @@ PM.camera = (() => {
     if (!A.ready()) { A.toast(t("camNoProgram"), true); banner(null, shot); return { shot, blob }; }
     const ext = blob.type === "image/png" ? "png" : "bmp";
     const file = new File([blob], `cam_${shot.shotId}.${ext}`, { type: blob.type, lastModified: Date.parse(shot.time) });
-    const it = A.addShot(file, { src: BASE + shot.url, shotId: shot.shotId, time: shot.time, camera: shot.camera, serial: shot.serial, select: true, timing: { t0, steps } });
+    const it = A.addShot(file, { src: HOST ? shot.url : BASE + shot.url, shotId: shot.shotId, time: shot.time, camera: shot.camera, serial: shot.serial, select: true, timing: { t0, steps } });
     banner({ status: "WAIT" }, shot);
     const done = await Promise.race([it.done, new Promise(r => setTimeout(() => r(null), 180000))]);
     if (!done) return { shot, blob, it };
@@ -537,6 +550,7 @@ PM.camera = (() => {
   }
 
   async function autoSave(it, shot) {
+    if (HOST) return;   // CodeVerifyStation keeps its own images
     const r = st.settings?.record; if (!r || r.autoSave === "off") return;
     if (r.autoSave === "ng" && it.status === "OK") return;
     const files = [];
@@ -594,7 +608,17 @@ PM.camera = (() => {
   A.hooks.role.push(() => updateUi());
 
   // ---------------- start ----------------
+  async function hostBlob(url) {
+    const r = await fetch(url, { cache: "no-store" });
+    if (!r.ok) throw new Error(`camera image: HTTP ${r.status}`);
+    return r.blob();
+  }
   async function start() {
+    if (HOST) {
+      const poll = async () => { try { st.hostCam = await PM.host.call("cam.status"); } catch (e) { st.hostCam = null; } updateUi(); };
+      await poll(); setInterval(poll, 10000);
+      return;
+    }
     try { const s = await api("/api/status"); st.bridge = s; st.cam = s.camera; updateUi(); loadSettings(); refreshCams(); if (camOn()) loadFeatures(); }
     catch (e) { st.bridge = null; updateUi(); }
     connectWs();

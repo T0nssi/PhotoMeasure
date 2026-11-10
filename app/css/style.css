@@ -216,3 +216,6 @@ a.btn { color: inherit; text-decoration: none; }
 #tab-train .side .form { grid-template-columns: 1fr 1fr; }
 #tab-train .side .form .chk { grid-column: 1 / -1; margin: 0; }
 #tab-train .side .form .f.full { grid-column: 1 / -1; }
+
+/* Host mode (inside CodeVerifyStation, js/host.js): the host owns users, login and the camera */
+.pm-host #btnLogout, .pm-host #tabs [data-tab="users"], .pm-host #tabCameraBtn, .pm-host #loginDlg { display: none !important; }

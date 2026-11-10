@@ -1594,6 +1594,8 @@
   PM.app = {
     S, hooks, toast, busy, download, safeName, esc,
     isAdmin: () => isAdmin(), showTab: n => showTab(n), saveLocal: () => saveLocal(), two: () => two(),
+    /** Host mode (inside CodeVerifyStation): the host's logged-in user replaces the own login. */
+    setUser(u) { const first = !S.user; S.user = u; applyRole(); if (u && first) afterLogin(); },
     ready: () => !!(S.t.master?.frame && S.t.master?.patch),
     activeTab: () => $$("#tabs button.active")[0]?.dataset.tab,
     /** Adds a camera image to the measure list and measures it. Resolves with the item when measured. */

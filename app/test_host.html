@@ -18,7 +18,7 @@ must give the reference values. Result: <b id="res">running…</b></p><pre id="l
     await PM.host.handle({ type: "hello" });
     const ready = got.find(m => m.type === "ready");
     say("hello → " + JSON.stringify(ready));
-    if (!ready || ready.protocol !== 1) fails.push("no ready answer");
+    if (!ready || ready.protocol !== 2) fails.push("no ready answer");
     const bad = await ask({ type: "nonsense", id: "x1" });
     say("unknown type → " + JSON.stringify(bad));
     if (bad.ok !== false) fails.push("unknown type accepted");

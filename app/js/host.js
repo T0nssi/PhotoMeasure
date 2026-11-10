@@ -3,8 +3,12 @@
 // measuring engine (PM.engine.measure) and answers with a compact result. Stand-alone use is not affected:
 // without a host nothing here is active.
 //
-// Protocol 1 (all messages are JSON objects with "type"):
+// Protocol 2 (all messages are JSON objects with "type"):
 //   host → page  {type:"hello"}                                   page → host {type:"ready", app, version, protocol}
+//   host → page  {type:"session", user:{name, role, hostRole}}    the logged-in user of the host (no own login)
+//   page → host  {type:"call", id, method, args}                  host → page {type:"reply", id, ok, result | error}
+//                methods: lib.list, lib.get {id}, lib.put {rec}, lib.del {id}   (programs = files of the host)
+//                         cam.status, cam.grab                                 (the host's camera)
 //   host → page  {type:"measure", id, program | programUrl, image, name?, maxDim?, serial?}
 //                                                                 page → host {type:"result", id, ok, result | error}
 //   host → page  {type:"selftest", id}   (the 3 golden photos of selftest/selftest-data.js through the same path)
@@ -14,11 +18,16 @@
 window.PM = window.PM || {};
 
 PM.host = (() => {
-  const VERSION = "0.6.0", PROTOCOL = 1;
+  const VERSION = "0.6.0", PROTOCOL = 2;
   const wv = (window.chrome && window.chrome.webview) || null;
   let send = wv ? (m => wv.postMessage(m)) : null;
   const programs = new Map();   // key → normalised template (cache, keeps the worker fast)
   let queue = Promise.resolve();
+  const calls = new Map();      // page → host calls waiting for a reply
+  let nextCall = 0;
+  const q = new URLSearchParams(location.search);
+  // user of the host: first from the address (known before the app starts), later from "session" messages
+  let user = wv && q.get("user") ? { name: q.get("user"), role: q.get("role") === "admin" ? "admin" : "operator", hostRole: q.get("hostRole") || "" } : null;
 
   const E = () => PM.engine, V = () => PM.vision;
   const post = m => { if (send) try { send(m); } catch (e) { console.error("host send", e); } };
@@ -123,10 +132,47 @@ PM.host = (() => {
     return { pass: out.every(x => x.pass), reference: D.version, photos: out };
   }
 
+  /** Ask the host (page → host). Resolves with the result, rejects with the host's error. */
+  function call(method, args = {}, timeoutMs = 30000) {
+    if (!send) return Promise.reject(new Error("no host"));
+    const id = "c" + (++nextCall);
+    return new Promise((ok, bad) => {
+      const timer = setTimeout(() => { calls.delete(id); bad(new Error(`host did not answer ${method}`)); }, timeoutMs);
+      calls.set(id, { ok: v => { clearTimeout(timer); ok(v); }, bad: e => { clearTimeout(timer); bad(e); } });
+      post({ type: "call", id, method, args });
+    });
+  }
+
+  /** Program library in the host's folder (replaces the browser library in host mode; same functions). */
+  const library = {
+    list: () => call("lib.list"),
+    get: id => call("lib.get", { id }),
+    async put(t, by) {
+      const rec = {
+        id: t.id, name: t.name || "part", partNo: t.partNo || "", modified: new Date().toISOString(), by: by || "",
+        elements: t.elements.filter(e => e.tool !== "ref").length, dims: t.dims.length, data: JSON.parse(JSON.stringify(t)),
+      };
+      return call("lib.put", { rec });   // the host sets the version and answers with the stored record
+    },
+    del: id => call("lib.del", { id }),
+    putRecord: rec => call("lib.put", { rec, keepVersion: true }),
+  };
+
+  function setUser(u) {
+    user = u ? { name: String(u.name || "operator"), role: u.role === "admin" ? "admin" : "operator", hostRole: u.hostRole || "" } : null;
+    if (PM.app && PM.app.setUser) PM.app.setUser(user);
+  }
+
   async function handle(m) {
     if (typeof m === "string") { try { m = JSON.parse(m); } catch (e) { return; } }
     if (!m || typeof m !== "object") return;
     if (m.type === "hello") return post({ type: "ready", app: "PhotoMeasure", version: VERSION, protocol: PROTOCOL });
+    if (m.type === "session") return setUser(m.user);
+    if (m.type === "reply") {
+      const c = calls.get(m.id); if (!c) return;
+      calls.delete(m.id);
+      return m.ok ? c.ok(m.result) : c.bad(new Error(m.error || "host error"));
+    }
     if (m.type !== "measure" && m.type !== "selftest") return post({ type: "result", id: m.id ?? null, ok: false, error: `unknown message type '${m.type}'` });
     // one job at a time, in the order received
     queue = queue.then(async () => {
@@ -142,10 +188,16 @@ PM.host = (() => {
   if (wv) {
     wv.addEventListener("message", ev => handle(ev.data));
     document.documentElement.classList.add("pm-host");
+    // the host owns users and programs: no own login, programs are files of the host
+    if (PM.library) PM.library = library;
+    if (PM.auth) {
+      PM.auth.current = () => user;
+      PM.auth.logout = () => { };
+    }
     // tell the host when the vision engine is ready
     const announce = () => post({ type: "ready", app: "PhotoMeasure", version: VERSION, protocol: PROTOCOL });
     if (document.readyState === "complete") V().whenCv().then(announce); else window.addEventListener("load", () => V().whenCv().then(announce));
   }
 
-  return { active: !!wv, VERSION, PROTOCOL, handle, connect, measure, selftest, log };
+  return { active: !!wv, VERSION, PROTOCOL, handle, connect, measure, selftest, log, call, library, user: () => user, setUser };
 })();
