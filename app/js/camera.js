@@ -448,7 +448,7 @@ PM.camera = (() => {
     st.grabbing = true; ["#cGrab", "#mGrab"].forEach(s => ($(s).disabled = true));
     try {
       const t0 = performance.now();
-      const shot = HOST ? await PM.host.call("cam.grab", {}, 30000) : await api("/api/grab", { body: {} });
+      const shot = HOST ? await PM.host.call("cam.grab", { programId: S.t?.id || "" }, 30000) : await api("/api/grab", { body: {} });
       return await handleShot(shot, { measure: opt.measure ?? $("#cMeasure").checked, show: A.activeTab() === "camera", t0, grabMs: performance.now() - t0 });
     } catch (e) { A.toast(e.message, true); return null; }
     finally { st.grabbing = false; updateUi(); }
