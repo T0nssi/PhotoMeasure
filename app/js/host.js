@@ -3,6 +3,10 @@
 // measuring engine (PM.engine.measure) and answers with a compact result. Stand-alone use is not affected:
 // without a host nothing here is active.
 //
+// Browser mode (macOS / Linux, no WebView2): the host serves this page on http://127.0.0.1:<port>/ and the page
+// is opened in the normal browser with ?bridge=ws&k=<key>. The same messages then go over a WebSocket
+// (ws://127.0.0.1:<port>/ws?k=<key>); the connection is opened again when it drops.
+//
 // Protocol 2 (all messages are JSON objects with "type"):
 //   host → page  {type:"hello"}                                   page → host {type:"ready", app, version, protocol}
 //   host → page  {type:"session", user:{name, role, hostRole}}    the logged-in user of the host (no own login)
@@ -20,14 +24,18 @@ window.PM = window.PM || {};
 PM.host = (() => {
   const VERSION = "0.6.0", PROTOCOL = 2;
   const wv = (window.chrome && window.chrome.webview) || null;
+  const q0 = new URLSearchParams(location.search);
+  const bridge = !wv && q0.get("bridge") === "ws" && q0.get("k") ? q0.get("k") : null;   // browser mode key
+  const hosted = !!(wv || bridge);
   let send = wv ? (m => wv.postMessage(m)) : null;
+  let socket = null;
   const programs = new Map();   // key → normalised template (cache, keeps the worker fast)
   let queue = Promise.resolve();
   const calls = new Map();      // page → host calls waiting for a reply
   let nextCall = 0;
   const q = new URLSearchParams(location.search);
   // user of the host: first from the address (known before the app starts), later from "session" messages
-  let user = wv && q.get("user") ? { name: q.get("user"), role: q.get("role") === "admin" ? "admin" : "operator", hostRole: q.get("hostRole") || "" } : null;
+  let user = hosted && q.get("user") ? { name: q.get("user"), role: q.get("role") === "admin" ? "admin" : "operator", hostRole: q.get("hostRole") || "" } : null;
 
   const E = () => PM.engine, V = () => PM.vision;
   const post = m => { if (send) try { send(m); } catch (e) { console.error("host send", e); } };
@@ -185,8 +193,40 @@ PM.host = (() => {
   /** For tests and other hosts: replace the transport (fn receives every message the page sends). */
   function connect(fn) { send = fn; }
 
-  if (wv) {
-    wv.addEventListener("message", ev => handle(ev.data));
+  /** Browser mode: connect to the host's WebSocket, again and again when it drops (host restarted, sleep …). */
+  function openBridge() {
+    const url = `${location.protocol === "https:" ? "wss" : "ws"}://${location.host}/ws?k=${encodeURIComponent(bridge)}`;
+    let ws;
+    try { ws = new WebSocket(url); } catch (e) { setTimeout(openBridge, 2000); return; }
+    socket = ws;
+    ws.onopen = () => {
+      send = m => ws.send(JSON.stringify(m));
+      bridgeBanner("");
+      if (document.readyState === "complete") V().whenCv().then(announce);
+    };
+    ws.onmessage = ev => handle(ev.data);
+    ws.onclose = () => {
+      if (socket !== ws) return;
+      send = null;
+      bridgeBanner("Connection to CodeVerifyStation lost – reconnecting … (is the program running?)");
+      setTimeout(openBridge, 2000);
+    };
+  }
+  function bridgeBanner(text) {
+    let b = document.getElementById("pmHostBanner");
+    if (!b && text) {
+      b = document.createElement("div");
+      b.id = "pmHostBanner";
+      b.style.cssText = "position:fixed;left:0;right:0;top:0;z-index:99999;padding:8px 12px;background:#b42318;color:#fff;font:600 14px system-ui,sans-serif;text-align:center";
+      document.body.appendChild(b);
+    }
+    if (b) { b.textContent = text; b.style.display = text ? "block" : "none"; }
+  }
+  const announce = () => post({ type: "ready", app: "PhotoMeasure", version: VERSION, protocol: PROTOCOL });
+
+  if (hosted) {
+    if (wv) wv.addEventListener("message", ev => handle(ev.data));
+    else openBridge();
     document.documentElement.classList.add("pm-host");
     // the host owns users and programs: no own login, programs are files of the host
     if (PM.library) PM.library = library;
@@ -194,10 +234,9 @@ PM.host = (() => {
       PM.auth.current = () => user;
       PM.auth.logout = () => { };
     }
-    // tell the host when the vision engine is ready
-    const announce = () => post({ type: "ready", app: "PhotoMeasure", version: VERSION, protocol: PROTOCOL });
+    // tell the host when the vision engine is ready (browser mode: also after every reconnect)
     if (document.readyState === "complete") V().whenCv().then(announce); else window.addEventListener("load", () => V().whenCv().then(announce));
   }
 
-  return { active: !!wv, VERSION, PROTOCOL, handle, connect, measure, selftest, log, call, library, user: () => user, setUser };
+  return { active: hosted, browser: !!bridge, VERSION, PROTOCOL, handle, connect, measure, selftest, log, call, library, user: () => user, setUser };
 })();
