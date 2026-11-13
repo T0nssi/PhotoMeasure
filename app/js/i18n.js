@@ -111,7 +111,7 @@ PM.i18n = (() => {
     photoAdjust: ["Image adjust (this photo)", "ปรับภาพ (เฉพาะภาพนี้)"],
     brightness: ["brightness", "ความสว่าง"], contrastW: ["contrast", "คอนทราสต์"], colourW: ["colour ΔE", "สี ΔE"], sizeW: ["size", "ขนาด"],
     // camera (Camera Bridge)
-    tabCamera: ["📷 Camera", "📷 กล้อง"], grabMaster: ["📷 Grab master", "📷 ถ่ายภาพต้นแบบจากกล้อง"],
+    tabCamera: ["📷 Camera", "📷 กล้อง"], tabCalib: ["📐 Calibration", "📐 สอบเทียบ"], grabMaster: ["📷 Grab master", "📷 ถ่ายภาพต้นแบบจากกล้อง"],
     camGrab: ["📷 Grab", "📷 ถ่ายภาพ"], camLive: ["▶ Live", "▶ ภาพสด"], camFreeze: ["❚❚ Freeze", "❚❚ หยุดภาพ"], camResume: ["▶ Resume live", "▶ กลับไปภาพสด"],
     camMeasure: ["Measure", "วัดทันที"], camAuto: ["Auto (trigger)", "อัตโนมัติ (ทริกเกอร์)"], camCross: ["Crosshair", "เส้นกึ่งกลาง"], camGrid: ["Grid", "เส้นตาราง"],
     camSat: ["Over-exposure", "แสดงจุดสว่างเกิน"], camRefs: ["Master refs", "REF ภาพต้นแบบ"],

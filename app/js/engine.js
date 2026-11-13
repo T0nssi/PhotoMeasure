@@ -78,6 +78,75 @@ PM.engine = (() => {
     t.seq[prefix] = n;
     return prefix + n;
   }
+  /** Search area moved by (sx, sy) mm: centres (cx, cy) and points ({x, y}: p0, p1 …) of the ROI. */
+  function shiftRoi(roi, sx, sy) {
+    if (!roi || typeof roi !== "object") return roi;
+    const r = JSON.parse(JSON.stringify(roi));
+    if (typeof r.cx === "number" && typeof r.cy === "number") { r.cx += sx; r.cy += sy; }
+    if (typeof r.x === "number" && typeof r.y === "number") { r.x += sx; r.y += sy; }
+    for (const k of Object.keys(r)) { const v = r[k]; if (v && typeof v === "object" && typeof v.x === "number" && typeof v.y === "number") { v.x += sx; v.y += sy; } }
+    return r;
+  }
+
+  /**
+   * Array copy of a group of elements that have the same style (e.g. a row of holes): every copy gets new ids, its
+   * search areas moved by the pitch, constructions copied with their arguments when these are in the group, and the
+   * dimensions of the group copied (a position nominal moves by the pitch).
+   * opt = {nx, ny: columns / rows (incl. the original), dx, dy: pitch in mm as in the report datum (X, Y of the drawing),
+   *        D: datum (datumOf) – without it dx / dy are in the program frame, dims: copy dimensions (default true)}.
+   * Returns {elements, dims, check} – check = copied dimensions that also use an element outside the group, whose
+   * nominal (if any) is not moved and must be checked.
+   */
+  function arrayCopy(t, ids, opt) {
+    const nx = Math.max(1, Math.floor(+opt.nx || 1)), ny = Math.max(1, Math.floor(+opt.ny || 1)), dx = +opt.dx || 0, dy = +opt.dy || 0;
+    const els = t.elements.filter(e => ids.includes(e.id) && e.tool !== "ref");
+    if (!els.length) throw new Error("select the elements to copy (REF circles are not copied)");
+    if (nx * ny < 2) throw new Error("columns × rows must be 2 or more");
+    if (nx * ny > 500) throw new Error("too many copies (max 500 positions)");
+    if ((nx > 1 && !dx) || (ny > 1 && !dy)) throw new Error("enter the pitch for every direction that has more than 1 position");
+    const group = new Set(els.map(e => e.id));
+    // pitch (datum X / Y) -> shift in the program frame (mm)
+    const D = opt.D, frameShift = (ix, iy) => {
+      if (!D) return { x: ix * dx, y: iy * dy };
+      const o = D.fwd({ x: 0, y: 0 }), f = D.inv({ x: o.x + ix * dx, y: o.y + iy * dy }), z = D.inv(o);
+      return { x: f.x - z.x, y: f.y - z.y };
+    };
+    t.seq = t.seq || {};
+    const gName = els[0].group || ("G" + (t.seq.G = (t.seq.G || 0) + 1));
+    for (const e of els) e.group = e.group || gName;
+    const dimsOf = opt.dims === false ? [] : t.dims.filter(d => group.has(d.a) || (d.b && group.has(d.b)));
+    const added = { elements: [], dims: [], check: [] };
+    let n = 1;
+    for (let iy = 0; iy < ny; iy++) for (let ix = 0; ix < nx; ix++) {
+      if (!ix && !iy) continue;
+      n++;
+      const s = frameShift(ix, iy), map = {};
+      for (const e of els) {
+        const c = JSON.parse(JSON.stringify(e));
+        c.id = nextId(t, PREFIX[e.tool] || String(e.id).replace(/\d+$/, "") || "E", "el");
+        map[e.id] = c.id;
+        c.name = `${String(e.name || e.id).replace(/ \[\d+\]$/, "")} [${n}]`;
+        c.group = gName; c.arrayOf = e.id;
+        if (c.roi) c.roi = shiftRoi(c.roi, s.x, s.y);
+        t.elements.push(c); added.elements.push(c);
+      }
+      for (const c of added.elements.slice(-els.length)) if (Array.isArray(c.args)) c.args = c.args.map(a => map[a] ?? a);
+      for (const d of dimsOf) {
+        const c = JSON.parse(JSON.stringify(d));
+        c.id = nextId(t, "D", "dim");
+        c.name = `${String(d.name || d.id).replace(/ \[\d+\]$/, "")} [${n}]`;
+        c.a = map[d.a] ?? d.a; if (d.b) c.b = map[d.b] ?? d.b;
+        c.arrayOf = d.id;
+        if (num(c.nomX) != null) c.nomX = +(num(c.nomX) + ix * dx).toFixed(6);
+        if (num(c.nomY) != null) c.nomY = +(num(c.nomY) + iy * dy).toFixed(6);
+        const outside = !group.has(d.a) || (d.b && !group.has(d.b));
+        if (outside && c.kind !== "position" && (num(c.nom) != null || c.spec)) added.check.push(c.id);
+        t.dims.push(c); added.dims.push(c);
+      }
+    }
+    return added;
+  }
+
   const PREFIX = { ocr: "T", color: "K", circle: "C", arc: "A", line: "L", point: "P", mid: "P", intersect: "P", foot: "P", line2p: "L", circle3p: "C", parallel: "L", perp: "L", bisector: "L" };
 
   // ---------------- calibration ----------------
@@ -92,6 +161,8 @@ PM.engine = (() => {
   //                         beforehand (no reference holes in the image); position from t.ref.pos:
   //                         "fixture" = part always at the same place, "shift" = search position,
   //                         "image" = search position + rotation (image match with the master)
+  /** REF search area {x0, y0, x1, y1} (fractions of the photo) of a 2c / 1c program; null = whole photo. */
+  const refArea = t => { const a = t.ref?.area; return a && a.x1 > a.x0 && a.y1 > a.y0 && modeOf(t) !== "cal" ? a : null; };
   const modeOf = t => (t.ref.mode === "1c" ? "1c" : t.ref.mode === "cal" ? "cal" : "2c");
   const posOf = t => (["fixture", "shift", "image"].includes(t.ref.pos) ? t.ref.pos : "image");
   const rotOf = t => (modeOf(t) === "cal" ? (posOf(t) === "image" ? "image" : "none") : t.ref.rotBy || (modeOf(t) === "2c" ? "ref2" : "image"));
@@ -198,9 +269,10 @@ PM.engine = (() => {
    */
   async function autoCalibrate(t, photo, mp, st) {
     if (modeOf(t) === "cal") return stationCalibrate(t, photo, mp, st);
-    const cands = (photo.cands && photo.candsKey === photo.procKey) ? photo.cands : (photo.cands = await V().findCircles(photo, t.proc));
+    const area = refArea(t);
+    const cands = (photo.cands && photo.candsKey === V().candsKey(photo, area)) ? photo.cands : (photo.cands = await V().findCircles(photo, t.proc, area));
     const two = modeOf(t) === "2c";
-    if (!cands.length) return { ok: false, error: "no circle found", cands };
+    if (!cands.length) return { ok: false, error: area ? "no circle found in the REF search area" : "no circle found", cands };
     let best = null;
     if (two) {
       if (cands.length < 2) return { ok: false, error: "fewer than 2 circles found", cands };
@@ -319,7 +391,7 @@ PM.engine = (() => {
    * meta = {serial} of the camera that took the photo (if known).
    */
   function checkStation(st, photo, meta) {
-    if (!st) return { ok: false, error: "no station calibration for this program: calibrate the station first (Camera tab → Station calibration)" };
+    if (!st) return { ok: false, error: "no station calibration for this program: calibrate the station first (📐 Calibration tab)" };
     const k = photo.loadScale || 1, W = Math.round(photo.w / k), H = Math.round(photo.h / k), warnings = [];
     if (Math.abs(W - st.W0) > 2 || Math.abs(H - st.H0) > 2) return { ok: false, error: `image size ${W}×${H} px differs from the station calibration (${st.W0}×${st.H0} px): ROI / binning changed, calibrate again` };
     if (meta?.serial && st.serial && meta.serial !== st.serial) return { ok: false, error: `photo from camera ${meta.serial}, but the station calibration is for camera ${st.serial}` };
@@ -1088,9 +1160,9 @@ PM.engine = (() => {
 
   return {
     TOOLS, DIMS, PREFIX, newTemplate, nextId, defaultEdge,
-    masterCalibration, manualCalibration, autoCalibrate, posOf, setAnchors, alignOnFeatures, stationScale, checkStation, stationCalibrate, stationInfo, searchPose, calibrateWith, frameInfo, masterPatch, corrBox, setRotRef, angleOf,
+    masterCalibration, manualCalibration, autoCalibrate, refArea, posOf, setAnchors, alignOnFeatures, stationScale, checkStation, stationCalibrate, stationInfo, searchPose, calibrateWith, frameInfo, masterPatch, corrBox, setRotRef, angleOf,
     NUM_OPS, TEXT_OPS, specOf, specText, judge, readTexts, readOcr, ocrBox,
     modeOf, rotOf, rotEl, appearanceOf, diffVsMaster, measureElement, failedRoots, autoSearch, teachColor,
-    runElements, evalDims, datumOf, measure, readCode, describeElement, num,
+    runElements, evalDims, datumOf, measure, readCode, describeElement, num, arrayCopy, shiftRoi,
   };
 })();

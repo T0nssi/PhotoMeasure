@@ -1,4 +1,4 @@
-// Station calibration card (Camera tab): grab or load a picture of a calibration plate, measure the scale,
+// Station calibration card (Calibration tab, always visible – also inside CodeVerifyStation): grab or load a picture of a calibration plate, measure the scale,
 // save it for the station (camera serial), check it again later (daily check), history.
 "use strict";
 PM.calibUi = (() => {
@@ -7,7 +7,12 @@ PM.calibUi = (() => {
   const GEOM = ["Width", "Height", "OffsetX", "OffsetY", "BinningHorizontal", "BinningVertical", "DecimationHorizontal", "DecimationVertical", "ReverseX", "ReverseY"];
   let last = null; // {res, photo, station, serial, model, source}
 
-  const cam = () => PM.camera?.state?.cam?.connected ? PM.camera.state.cam.camera : null;
+  // camera of this PC: Camera Bridge, or inside CodeVerifyStation the station's camera (cam.status: name, serial)
+  const cam = () => {
+    const st = PM.camera?.state;
+    if (PM.host?.active) return st?.hostCam?.connected && st.hostCam.serial ? { serial: st.hostCam.serial, name: st.hostCam.name || "", model: "" } : null;
+    return st?.cam?.connected ? st.cam.camera : null;
+  };
   const curStation = () => cam()?.serial || last?.station || "files";
   const f3 = v => (v == null || isNaN(v) ? "—" : v.toFixed(3));
   const day = d => new Date(d).toLocaleString();
@@ -128,7 +133,7 @@ PM.calibUi = (() => {
     await runPlate(new File([r.blob], `plate_${r.shot.shotId}.${ext}`, { type: r.blob.type }), "camera", r.shot);
   });
 
-  A.hooks.tab.push(n => { if (n === "camera") renderActive(); });
+  A.hooks.tab.push(n => { if (n === "calib" || n === "camera") renderActive(); });
   A.hooks.role.push(() => renderActive());
   sizeLabel(); renderActive();
   return { renderActive, get last() { return last; } };

@@ -22,7 +22,7 @@
 window.PM = window.PM || {};
 
 PM.host = (() => {
-  const VERSION = "0.6.0", PROTOCOL = 2;
+  const VERSION = "0.6.1", PROTOCOL = 2;
   const wv = (window.chrome && window.chrome.webview) || null;
   const q0 = new URLSearchParams(location.search);
   const bridge = !wv && q0.get("bridge") === "ws" && q0.get("k") ? q0.get("k") : null;   // browser mode key
@@ -97,7 +97,7 @@ PM.host = (() => {
     const file = await fileOf(job.image, job.name);
     const p = await V().loadPhoto(file, job.maxDim || 6000, t.proc);
     T.load = performance.now() - t0;
-    p.cands = fixed ? [] : await V().findCircles(p, t.proc);
+    p.cands = fixed ? [] : await V().findCircles(p, t.proc, E().refArea(t));   // only inside the REF search area, if set
     T.circles = performance.now() - t0 - T.load;
     const station = fixed && PM.calib ? PM.calib.active(t.ref.station || "files") : null;
     const res = await E().measure(t, p, { masterPatch: t.master?.patch, user: job.user || "host", timing: T, station, meta: { serial: job.cameraSerial || null } });

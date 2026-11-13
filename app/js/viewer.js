@@ -54,6 +54,11 @@ PM.viewer = (() => {
       const p = A.ap(S, { x: c.cx, y: c.cy }), r = c.r * Math.hypot(S[0], S[1]);
       ring(ctx, p, r, "rgba(250,204,21,.8)", 1.5 * sc, [4, 3]);
     }
+    // REF search area (photo px rectangle)
+    if (o.refArea) {
+      const b = o.refArea, q = [[b.x0, b.y0], [b.x1, b.y0], [b.x1, b.y1], [b.x0, b.y1]].map(([x, y]) => A.ap(S, { x, y }));
+      poly(ctx, q, "rgba(34,211,238,.9)", 1.5 * sc, [8, 4]); label(ctx, q[0], "REF search", "rgba(34,211,238,.95)", sc, -4);
+    }
     // ROIs
     if (t && o.showRoi) for (const el of t.elements) drawRoi(ctx, el, P, zoom, sc, o.selected === el.id);
     if (t && o.showRoi && t.code) {
