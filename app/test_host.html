@@ -1,0 +1,41 @@
+<!doctype html><html><head><meta charset="utf-8"><title>PhotoMeasure host-mode test</title></head><body>
+<h3>Host mode (CodeVerifyStation / WebView2) – message path test</h3>
+<p>Sends the same JSON messages a host program sends and checks the answers. The 3 golden photos of the self-test
+must give the reference values. Result: <b id="res">running…</b></p><pre id="log"></pre>
+<script src="lib/opencv.js"></script><script src="lib/zxing.min.js"></script><script src="lib/exifr.umd.js"></script>
+<script src="js/i18n.js"></script><script src="js/ocr.js"></script><script src="js/charml.js"></script>
+<script src="js/geom.js"></script><script src="js/vision.js"></script><script src="js/engine.js"></script><script src="js/calib.js"></script>
+<script src="js/host.js"></script>
+<script>
+"use strict";
+(async () => {
+  const out = document.getElementById("log"), say = s => { out.textContent += s + "\n"; };
+  const waiting = new Map(), got = [];
+  PM.host.connect(m => { got.push(m); if (m.type === "result" && waiting.has(m.id)) { waiting.get(m.id)(m); waiting.delete(m.id); } });
+  const ask = m => new Promise(ok => { waiting.set(m.id, ok); PM.host.handle(JSON.stringify(m)); });
+  const fails = [];
+  try {
+    await PM.host.handle({ type: "hello" });
+    const ready = got.find(m => m.type === "ready");
+    say("hello → " + JSON.stringify(ready));
+    if (!ready || ready.protocol !== 2) fails.push("no ready answer");
+    const bad = await ask({ type: "nonsense", id: "x1" });
+    say("unknown type → " + JSON.stringify(bad));
+    if (bad.ok !== false) fails.push("unknown type accepted");
+    const nop = await ask({ type: "measure", id: "x2", image: "samples/partA_DZZ0.jpg" });
+    say("measure without program → " + JSON.stringify(nop));
+    if (nop.ok !== false) fails.push("job without program accepted");
+    const st = await ask({ type: "selftest", id: "s1" });
+    if (!st.ok) fails.push("selftest error: " + st.error);
+    else for (const p of st.result.photos) { say(`${p.pass ? "PASS" : "FAIL"} ${p.name}: ${p.status} (expected ${p.expected}) ${p.ms} ms ${p.bad.join("; ")}`); say("     " + p.dims.map(d => `${d.id}=${typeof d.value === "number" ? d.value.toFixed(4) : d.value} ${d.status}`).join("  ")); if (!p.pass) fails.push(p.name); }
+    // a full measure job as a host sends it: program inline (JSON text), image as URL
+    const prog = JSON.parse(JSON.stringify(window.PM_SELFTEST.program));
+    const m = await ask({ type: "measure", id: "m1", program: prog, image: "samples/partA_DZZ0.jpg", serial: "TEST-1", maxDim: 4096 });
+    if (!m.ok) fails.push("measure error: " + m.error);
+    else { const r = m.result; say(`measure samples/partA_DZZ0.jpg → ${r.status} serial ${r.serial} dm ${r.dm} ${r.ms} ms`); for (const d of r.dims) say(`     ${d.id} ${d.name}: ${JSON.stringify(d.value)} ${d.unit} [${d.low ?? ""}..${d.high ?? ""}] ${d.status}`); window.lastResult = r; }
+  } catch (e) { fails.push(String(e.message || e)); }
+  const res = document.getElementById("res");
+  res.textContent = fails.length ? "FAIL – " + fails.join(" | ") : "PASS";
+  window.hostTestDone = { pass: fails.length === 0, fails, log: out.textContent };
+})();
+</script></body></html>

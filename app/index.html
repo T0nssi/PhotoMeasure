@@ -16,6 +16,7 @@
     <button data-tab="measure" data-i18n="tabMeasure">2 · Measure photos</button>
     <button data-tab="report" data-i18n="tabReport">3 · Report</button>
     <button data-tab="camera" id="tabCameraBtn" data-i18n="tabCamera" hidden>📷 Camera</button>
+    <button data-tab="calib" id="tabCalibBtn" data-i18n="tabCalib">📐 Calibration</button>
     <button data-tab="train" class="adminOnly" data-i18n="tabTrain">🧠 Training</button>
     <button data-tab="users" class="adminOnly" data-i18n="tabUsers">Users</button>
     <button data-tab="help" data-i18n="tabHelp">Help</button>
@@ -38,6 +39,7 @@
         <span class="sep"></span>
         <button class="tb" data-tool="ref1" title="Click inside reference hole 1">◎ REF1</button>
         <button class="tb" data-tool="ref2" title="Click inside reference hole 2">◎ REF2</button>
+        <button class="tb" data-tool="refarea" title="Drag a rectangle around the reference holes: new photos are searched for REF1 / REF2 only inside it">⬚ REF area</button>
         <span class="sep"></span>
         <button class="tb" data-tool="circle" title="Drag from centre to the edge">○ Circle</button>
         <button class="tb" data-tool="arc" title="Click 3 points along the arc">◜ Arc</button>
@@ -74,6 +76,10 @@
           <button class="btn sm" id="btnSaveTpl" data-i18n="saveTpl">Export file</button>
           <span class="muted small" id="libInfo"></span>
         </div>
+        <details style="margin-top:6px" id="revBox"><summary class="small"><span data-i18n="revHist">Revision history</span> <span id="revCount" class="muted"></span></summary>
+          <div id="revList" class="scrollY small" style="max-height:220px;margin-top:4px"></div>
+          <div id="formerNames" class="muted small" style="margin-top:4px"></div>
+        </details>
       </div>
       <div class="card">
         <h2 data-i18n="partRefs">Part &amp; reference circles</h2>
@@ -88,6 +94,7 @@
           <label class="f notCal"><span data-i18n="d1">REF1 hole Ø (mm)</span><input id="tD1" type="number" step="0.001" min="0"></label>
           <label class="f only2c"><span data-i18n="d2">REF2 hole Ø (mm)</span><input id="tD2" type="number" step="0.001" min="0"></label>
           <label class="f only2c"><span data-i18n="Lref">REF1–REF2 distance (mm)</span><input id="tL" type="number" step="0.001" min="0" placeholder="auto"></label>
+          <div class="f notCal" id="tAreaRow" style="grid-column:1/-1"><span data-i18n="refArea">REF search area</span><div class="row"><span class="small" id="tAreaInfo">whole photo</span><button class="btn sm" id="btnAreaClear" title="Search the whole photo again">Clear</button></div></div>
           <label class="f">Min px/mm<input id="tMinPx" type="number" step="1" min="1"></label>
           <label class="f">Serial number from<select id="tSerial"></select></label>
         </div>
@@ -134,6 +141,23 @@
       <div class="card">
         <h2 data-i18n="elements">Elements</h2>
         <div class="scrollY" style="max-height:220px"><table id="elTable" class="tbl"></table></div>
+        <div class="row" style="margin-top:6px">
+          <button class="btn sm adminOnly" id="btnArray" title="Copy the ticked elements (and their dimensions) at a pitch: same style at other positions" data-i18n="arrCopy">▦ Array copy…</button>
+          <button class="btn sm" id="btnGrpSel" title="Tick all elements of the group of the selected element">Select group</button>
+          <button class="btn sm" id="btnGrpClear" title="Untick all">Clear ticks</button>
+          <span class="muted small" id="grpInfo"></span>
+        </div>
+        <div id="arrBox" class="props" hidden style="margin-top:6px">
+          <div class="form">
+            <label class="f"><span data-i18n="arrNx">Columns (X)</span><input id="arrNx" type="number" min="1" max="100" step="1" value="2"></label>
+            <label class="f"><span data-i18n="arrDx">Pitch X (mm)</span><input id="arrDx" type="number" step="0.001" placeholder="e.g. 5.000"></label>
+            <label class="f"><span data-i18n="arrNy">Rows (Y)</span><input id="arrNy" type="number" min="1" max="100" step="1" value="1"></label>
+            <label class="f"><span data-i18n="arrDy">Pitch Y (mm)</span><input id="arrDy" type="number" step="0.001" placeholder="0 = one row"></label>
+            <label class="chk" style="grid-column:1/-1"><input type="checkbox" id="arrDims" checked> <span data-i18n="arrDims">Copy the dimensions of these elements (position nominals move by the pitch)</span></label>
+          </div>
+          <div class="muted small">X / Y as in the report datum (drawing). Counts include the original. Yellow dashed = where the copies go.</div>
+          <div class="row" style="margin-top:6px"><button class="btn sm primary" id="btnArrGo" data-i18n="arrGo">Create copies</button><span id="arrMsg" class="small muted"></span></div>
+        </div>
         <div id="elProps"></div>
       </div>
       <div class="card">
@@ -383,10 +407,18 @@
           <div id="cRecList" class="scrollY small" style="max-height:220px;margin-top:4px"></div>
         </details>
       </div>
+    </aside>
+  </div>
+</section>
+
+<!-- ================= STATION CALIBRATION ================= -->
+<section class="tab" id="tab-calib">
+  <div class="pad">
+    <div class="grid g2">
       <div class="card" id="calCard">
         <div class="row" style="justify-content:space-between"><h2 style="margin:0" data-i18n="calTitle">Station calibration</h2><span id="calState" class="small"></span></div>
         <div id="calActive" class="small" style="margin-top:4px">—</div>
-        <details id="calBox" style="margin-top:6px"><summary class="small"><b data-i18n="calNew">Calibrate / check with a plate</b></summary>
+        <details id="calBox" open style="margin-top:6px"><summary class="small"><b data-i18n="calNew">Calibrate / check with a plate</b></summary>
           <div class="form" style="margin-top:6px">
             <label class="f"><span data-i18n="calMethod">Plate</span><select id="calMethod"><option value="dots">Dot grid (square pattern)</option><option value="circle">Ring / pin gauge (one circle)</option></select></label>
             <label class="f"><span id="calSizeLbl">Dot pitch (mm)</span><input id="calSize" type="number" step="0.0001" min="0" placeholder="e.g. 1.000"></label>
@@ -406,7 +438,11 @@
         </details>
         <details style="margin-top:6px"><summary class="small" data-i18n="calHist">History</summary><div id="calList" class="small" style="margin-top:4px"></div></details>
       </div>
-    </aside>
+      <div class="card">
+        <h2>How it is used</h2>
+        <div class="small">Programs with reference mode <b>Fixed calibration (station, no REF holes)</b> take the scale (mm per pixel) from the saved calibration of their station (camera serial, or "photos from files"). Programs with REF circles calibrate on every photo and do not need it, but the plate check is still a good daily check of focus and camera height.<br><br>1. Put the plate where the part is measured, in focus.<br>2. Choose the plate type and enter the dot pitch or the gauge diameter.<br>3. <b>Grab plate</b> (camera) or <b>Load plate image</b>.<br>4. Admin / engineer: <b>Save calibration</b>. Daily: <b>Check against saved</b>.</div>
+      </div>
+    </div>
   </div>
 </section>
 
@@ -548,6 +584,8 @@
 <script src="js/calib.js"></script>
 <script src="js/viewer.js"></script>
 <script src="js/report.js"></script>
+<!-- host mode (inside CodeVerifyStation) must replace the library and login before app.js starts -->
+<script src="js/host.js"></script>
 <script src="js/app.js"></script>
 <script src="js/camera.js"></script>
 <script src="js/timing.js"></script>

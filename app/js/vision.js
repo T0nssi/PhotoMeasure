@@ -165,13 +165,33 @@ PM.vision = (() => {
 
   // ---------- circle candidates ----------
   /** Returns [{cx, cy, r, ...}] in full-resolution pixels. Uses photo.gray (processed) and proc.det / proc.ref. */
-  async function findCircles(photo, proc) {
+  /** Search area of the REF circles {x0, y0, x1, y1} (fractions of the image) -> pixel rectangle, null = whole image. */
+  function areaRect(photo, area) {
+    if (!area || !(area.x1 > area.x0) || !(area.y1 > area.y0)) return null;
+    const W = photo.w, H = photo.h, cl = (v, m) => Math.max(0, Math.min(m, v));
+    const x = Math.floor(cl(area.x0, 1) * W), y = Math.floor(cl(area.y0, 1) * H);
+    const w = Math.ceil(cl(area.x1, 1) * W) - x, h = Math.ceil(cl(area.y1, 1) * H) - y;
+    if (w < 16 || h < 16 || (w >= W && h >= H)) return null;
+    return { x, y, w, h };
+  }
+  const areaKey = area => (area && area.x1 > area.x0 && area.y1 > area.y0 ? `|${area.x0.toFixed(4)},${area.y0.toFixed(4)},${area.x1.toFixed(4)},${area.y1.toFixed(4)}` : "");
+  /** Cache key of photo.cands for this search area (procKey + area). */
+  const candsKey = (photo, area) => photo.procKey + areaKey(area);
+
+  /**
+   * Round candidates (REF circles) in the photo. area = optional search area {x0, y0, x1, y1} as fractions of the
+   * image: only this part is searched (faster, and other round features of the part cannot be taken for a REF).
+   */
+  async function findCircles(photo, proc, area) {
     const cv = await whenCv();
     const P = procOf(proc), D = P.det;
-    const k = Math.min(1, (D.workSize || 1000) / Math.max(photo.w, photo.h));
+    const R = areaRect(photo, area), ox = R ? R.x : 0, oy = R ? R.y : 0, rw = R ? R.w : photo.w, rh = R ? R.h : photo.h;
+    const k = Math.min(1, (D.workSize || 1000) / Math.max(rw, rh));
     const gray = new cv.Mat(photo.h, photo.w, cv.CV_8UC1); gray.data.set(photo.gray.data);
+    const sub = R ? gray.roi(new cv.Rect(ox, oy, rw, rh)) : gray;
     const small = new cv.Mat();
-    cv.resize(gray, small, new cv.Size(Math.round(photo.w * k), Math.round(photo.h * k)), 0, 0, cv.INTER_AREA);
+    cv.resize(sub, small, new cv.Size(Math.max(1, Math.round(rw * k)), Math.max(1, Math.round(rh * k))), 0, 0, cv.INTER_AREA);
+    if (R) sub.delete();
     const bl = Math.max(1, (D.blur | 0) | 1);
     if (bl > 1) cv.GaussianBlur(small, small, new cv.Size(bl, bl), 0);
     const bins = [], odd = v => Math.max(3, (v | 0) | 1);
@@ -183,7 +203,7 @@ PM.vision = (() => {
     }
     const e = new cv.Mat(); cv.Canny(small, e, D.canny1, D.canny2);
     const ker = cv.Mat.ones(3, 3, cv.CV_8U); cv.dilate(e, e, ker); cv.bitwise_not(e, e); bins.push(e);
-    const minR = D.minR || 4, maxR = Math.max(small.cols, small.rows) / (D.maxRFrac || 6);
+    const minR = D.minR || 4, maxR = Math.max(photo.w, photo.h) * k / (D.maxRFrac || 6);   // size limit from the whole image, also with a search area
     const cands = [];
     for (const b of bins) {
       const cs = new cv.MatVector(), hi = new cv.Mat();
@@ -215,7 +235,7 @@ PM.vision = (() => {
     // back to full resolution, then sub-pixel refine
     const res = [];
     for (const c of out) {
-      const full = { cx: c.cx / k, cy: c.cy / k, r: c.r / k };
+      const full = { cx: c.cx / k + ox, cy: c.cy / k + oy, r: c.r / k };
       const ref = refineCircle(photo.gray, full, P.ref) || null;
       if (ref && Math.abs(ref.r - full.r) < 0.35 * full.r && Math.hypot(ref.cx - full.cx, ref.cy - full.cy) < 0.35 * full.r)
         res.push({ ...ref, circ: c.circ, contrast: ref.contrast });
@@ -224,7 +244,7 @@ PM.vision = (() => {
     const fin = [];
     for (const c of res.sort((a, b) => a.rms / a.r - b.rms / b.r))
       if (fin.every(o => Math.hypot(c.cx - o.cx, c.cy - o.cy) > 0.3 * o.r || Math.abs(c.r - o.r) > 0.2 * o.r)) fin.push(c);
-    photo.candsKey = photo.procKey;
+    photo.candsKey = candsKey(photo, area);
     return fin;
   }
 
@@ -448,5 +468,5 @@ PM.vision = (() => {
     return null;
   }
 
-  return { whenCv, toLab, defaultProc, procOf, loadPhoto, makeGray, shrink, grayCanvas, appearance, findCircles, findDots, refineCircle, robustCircle, scanRay, scanRing, scanRect, sharpness, readDataMatrix, sample };
+  return { whenCv, toLab, defaultProc, procOf, loadPhoto, makeGray, shrink, grayCanvas, appearance, findCircles, candsKey, areaRect, findDots, refineCircle, robustCircle, scanRay, scanRing, scanRect, sharpness, readDataMatrix, sample };
 })();

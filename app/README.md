@@ -2,7 +2,7 @@
 
 Measure parts from phone photos. Two reference holes on the part give the scale and the position. You build a measurement program (OMM-style) once on a master photo. Then you measure many photos at once and export Excel, PDF or Word reports in English, Thai or both.
 
-Version 0.6.0. Concept: "Photo Measurement Program – Concept Design" in the Laser Marking Conception project.
+Version 0.6.1. Concept: "Photo Measurement Program – Concept Design" in the Laser Marking Conception project.
 
 ## Start
 
@@ -57,7 +57,7 @@ A Basler USB 3.0 camera (tested target: acA4600-10uc) is connected through the *
 
 For a **fixed camera station** (camera distance, lens and focus never change) the scale can come from a calibration made once, instead of reference holes in every image.
 
-1. **Calibrate** (📷 Camera tab → *Station calibration*, admin): put a certified **dot-grid plate** (square pattern, known pitch) at the height of the measured part surface, focus, **📷 Grab plate** (or *Load plate image*). The result shows the scale (µm/px, px/mm), X/Y scale, squareness, dot error RMS/max, lens distortion at the corner and plate coverage, with a picture of the dot errors. **Save calibration** stores it on this PC for the camera serial number (`localStorage pm.stations`, included in the backup file), with the image size, camera image-area settings, date, user and validity (days). A ring / pin gauge of known Ø can be used instead (less accurate).
+1. **Calibrate** (📐 **Calibration** tab, admin; since v0.6.1 its own tab, always visible – also without the Camera Bridge and inside CodeVerifyStation, where the station camera's serial is used): put a certified **dot-grid plate** (square pattern, known pitch) at the height of the measured part surface, focus, **📷 Grab plate** (or *Load plate image*). The result shows the scale (µm/px, px/mm), X/Y scale, squareness, dot error RMS/max, lens distortion at the corner and plate coverage, with a picture of the dot errors. **Save calibration** stores it on this PC for the camera serial number (`localStorage pm.stations`, included in the backup file), with the image size, camera image-area settings, date, user and validity (days). A ring / pin gauge of known Ø can be used instead (less accurate).
 2. **Daily check**: grab the plate again → *Check against saved* (limit ±0.05 %, logged in the history of the calibration).
 3. **Program**: Reference = *Fixed calibration (station, no REF holes)*, choose the station and the part position:
    - *Fixture* – the part is always at the same place (no search, fastest);
@@ -67,6 +67,29 @@ For a **fixed camera station** (camera distance, lens and focus never change) th
 4. **Protection**: no calibration, another image size (ROI / binning) or another camera → **FAIL**; calibration expired → **CHECK**; part larger / smaller than the master (height, distance, focus changed: > 1 % on circle spacing or > 4 % on a diameter) → **CHECK**; image does not match the master → **CHECK**.
 
 Accuracy depends on the plate and the set-up: the part surface must be at the plate's height (or use a telecentric lens), and the camera must be square to the part.
+
+## v0.6.1 – REF search area, revision record, group / array copy, Calibration tab
+
+- **📐 Calibration tab**: the station calibration card was on the 📷 Camera tab, which is hidden when no Camera Bridge
+  runs and always inside CodeVerifyStation – so calibration could not be reached there. It now has its own tab (load a
+  plate image always works; 📷 *Grab plate* when a camera is connected – inside CodeVerifyStation the station camera).
+- **REF search area** (2 circles / 1 circle): *Part program* → **⬚ REF area**, drag a rectangle around REF1 (and REF2)
+  with room for the part's position change. New photos are searched for the REF circles only inside it (stored as a
+  fraction of the photo, `ref.area`, so it fits any resolution): faster, and other round features of the part or the
+  fixture are not taken for a REF. Shown dashed (*REF search*) on the master and, with *Circles*, on measured photos.
+  *Clear* searches the whole photo again. Not used with *Fixed calibration* (that mode has *Search range (mm)*).
+- **Revision record / rename**: every *Save to library* asks for a revision note and adds `{v, date, by, name, note,
+  renamedFrom}` to `revisions` in the program (travels with export, backup and CodeVerifyStation). To rename, change
+  *Part name* and save: the id stays, the version counts up, the rename is recorded and the old name goes to
+  `formerNames` (CodeVerifyStation flows that use the old name still find the program). *Revision history* in the
+  library card lists them. In CodeVerifyStation each replaced version is also kept as a file
+  (`Data\config\measure\history\<id>\v<n>.pm.json`, last 50).
+- **Group + array copy**: tick (☑) elements of the same style in the *Elements* list (e.g. a hole circle and its
+  constructions), **▦ Array copy…** → columns / rows (including the original) and the pitch X / Y in mm as in the
+  report datum (drawing). Yellow dashed outlines preview the copies; *Create copies* adds them with new ids, names
+  `… [2]`, `… [3]`, a group tag (`G1`) and, if ticked, copies of their dimensions (position nominals move by the
+  pitch; dimensions to an element outside the group keep their nominal and are listed to check). *Select group* ticks
+  a whole group again (e.g. to delete or copy it once more).
 
 ## Trained character reader – Training tab (v0.6.0)
 
@@ -82,6 +105,30 @@ The file version (index.html) and the Camera Bridge version (http://127.0.0.1:50
 
 Reading with a trained reader takes about 20–60 ms per text box (Tesseract: 0.3–2 s). The format still applies: each position chooses the most likely allowed character; extra blobs are dropped by the format length.
 Limits: one text line per box gives the best result (two lines without anything between them work with *Lines: several*); the reader answers only with characters it was trained on.
+
+## Host mode – inside CodeVerifyStation
+
+`js/host.js` lets another Windows program show PhotoMeasure in an embedded **WebView2** and use it as its measuring
+engine (CodeVerifyStation, page 📏 Measure). It is active only inside WebView2 (`window.chrome.webview`); opened
+normally, nothing changes (own login, own library, Camera Bridge).
+
+Inside the host:
+
+- **No own login:** the user and role come from the host (address `?host=cvs&user=…&role=admin|operator`, then
+  `session` messages). Log out, the Users tab and the login dialog are hidden.
+- **Programs are files of the host:** *Save to library*, *Open*, *Delete* go to the host (`lib.*` calls); the
+  host keeps them as normal `.pm.json` files (CodeVerifyStation: `Data\config\measure`).
+- **Camera of the host:** *📷 Grab* and *📷 Grab master* ask the host for an image (`cam.*` calls); the Camera tab
+  and the Camera Bridge are not used.
+
+Messages (JSON, protocol 2): `hello` → `ready`; `session {user}`; `measure {id, program | programUrl, image, name?,
+maxDim?, serial?}` → `result {id, ok, result}` with status, serial, 2D code, every dimension (value, unit, low / high,
+status), warnings and the time per step; `selftest {id}` measures the 3 golden photos the same way;
+page → host `call {id, method, args}` → `reply {id, ok, result | error}`.
+
+**`test_host.html`** checks the measuring messages (serve the `app` folder over http, e.g. `python -m http.server`,
+because it loads the sample images with `fetch`): all lines must be PASS. Concept and plan:
+`docs/PHOTOMEASURE_INTEGRATION_CONCEPT.md` in the ScannerMachineReportAutomation repository.
 
 ## Processing time (v0.5.3)
 

@@ -15,7 +15,7 @@ PM.help = (() => {
     return `
 <div class="wi-head">
   <div><h1>คู่มือการทำงาน (Work Instruction) — โปรแกรมวัดขนาดจากภาพถ่าย</h1>
-  <div class="muted">เวอร์ชัน 0.6.0 · เปิดไฟล์ index.html ด้วย Chrome หรือ Edge (ไม่ต้องติดตั้ง) · ใช้กล้องอุตสาหกรรม: เปิดผ่าน Camera Bridge (หัวข้อ 9)</div></div>
+  <div class="muted">เวอร์ชัน 0.6.1 · เปิดไฟล์ index.html ด้วย Chrome หรือ Edge (ไม่ต้องติดตั้ง) · ใช้กล้องอุตสาหกรรม: เปิดผ่าน Camera Bridge (หัวข้อ 9)</div></div>
   <button class="btn primary no-print" onclick="window.print()">🖨 พิมพ์ / บันทึกเป็น PDF</button>
 </div>
 
@@ -33,6 +33,7 @@ PM.help = (() => {
     <li><a href="#wi-cal">สอบเทียบสถานี (ไม่ใช้รู REF)</a></li>
     <li><a href="#wi-time">เวลาประมวลผล</a></li>
     <li><a href="#wi-train">สอนตัวอ่านตัวอักษรเอง (Training)</a></li>
+    <li><a href="#wi-new061">พื้นที่ค้นหา REF · ประวัติแก้ไข · คัดลอกแบบ Array</a></li>
   </ol>
 </div>
 
@@ -136,7 +137,7 @@ ${step(7, "บันทึกภาพ", `${fig(L, "23_cam_record", "บัน�
 <li>แผ่นสอบเทียบแบบ <b>จุดตาราง (dot grid)</b> ที่มีใบรับรองระยะห่างจุด (เช่น 0.5 หรือ 1.000 มม.) ขนาดเต็มพื้นที่ภาพ หรือ ring/pin gauge ที่ทราบ Ø (ความแม่นยำน้อยกว่า)</li>
 <li>ผิวแผ่นต้องอยู่ <b>ระดับความสูงเดียวกับผิวที่วัดของชิ้นงาน</b> (ถ้าสูงต่างกัน สเกลจะต่างกัน) · กล้องตั้งฉากกับชิ้นงาน · ใช้เลนส์ telecentric ได้จะดีที่สุด</li>
 <li>ห้ามเปลี่ยน โฟกัส ซูม ระยะกล้อง Binning / ขนาดภาพ หลังสอบเทียบ (ถ้าเปลี่ยน ต้องสอบเทียบใหม่)</li></ul></div>
-${step(1, "ผู้ดูแลระบบ: สอบเทียบด้วยแผ่นสอบเทียบ (แท็บ 📷 กล้อง)", `${fig(L, "26_cal_plate", "การสอบเทียบสถานี", ["สถานะการสอบเทียบของกล้องนี้ (ใช้ได้ / ใกล้หมดอายุ / หมดอายุ)", "ชนิดแผ่น: Dot grid หรือ ring/pin gauge", "ระยะห่างจุด (มม.) ตามใบรับรองของแผ่น", "อายุการใช้งาน (วัน) เช่น 30", "<b>📷 ถ่ายแผ่นสอบเทียบ</b> หรือ <b>โหลดภาพแผ่น</b>", "ภาพผล: จุดสีเขียว = ดี สีส้ม/แดง = ผิดตำแหน่ง (เส้น = ทิศความคลาดเคลื่อน ขยายแล้ว)", "ผล: สเกล µm/px, X/Y, ความฉาก, ความคลาดเคลื่อนของจุด RMS/max, distortion ของเลนส์", "<b>บันทึกการสอบเทียบ</b> · <b>ตรวจเทียบกับค่าที่บันทึก</b> (ตรวจประจำวัน เกณฑ์ ±0.05 %)"])}
+${step(1, "ผู้ดูแลระบบ: สอบเทียบด้วยแผ่นสอบเทียบ (แท็บ 📐 Calibration)", `${fig(L, "26_cal_plate", "การสอบเทียบสถานี", ["สถานะการสอบเทียบของกล้องนี้ (ใช้ได้ / ใกล้หมดอายุ / หมดอายุ)", "ชนิดแผ่น: Dot grid หรือ ring/pin gauge", "ระยะห่างจุด (มม.) ตามใบรับรองของแผ่น", "อายุการใช้งาน (วัน) เช่น 30", "<b>📷 ถ่ายแผ่นสอบเทียบ</b> หรือ <b>โหลดภาพแผ่น</b>", "ภาพผล: จุดสีเขียว = ดี สีส้ม/แดง = ผิดตำแหน่ง (เส้น = ทิศความคลาดเคลื่อน ขยายแล้ว)", "ผล: สเกล µm/px, X/Y, ความฉาก, ความคลาดเคลื่อนของจุด RMS/max, distortion ของเลนส์", "<b>บันทึกการสอบเทียบ</b> · <b>ตรวจเทียบกับค่าที่บันทึก</b> (ตรวจประจำวัน เกณฑ์ ±0.05 %)"])}
 <p class="small">เกณฑ์แนะนำ: ความคลาดเคลื่อนจุด RMS &lt; 1/10 ของพิกัดความเผื่อที่แคบที่สุด · X/Y ต่างกัน &lt; 0.2 % · distortion &lt; 0.1 % (ถ้ามากกว่า ให้วัดชิ้นงานใกล้กลางภาพ)</p>`)}
 ${step(2, "ผู้ดูแลระบบ: ตั้งโปรแกรมให้ใช้การสอบเทียบสถานี", `${fig(L, "27_cal_program", "แท็บ 1 · โปรแกรมการวัด", ["การอ้างอิง = <b>Fixed calibration (station, no REF holes)</b>", "สถานี (กล้อง) ที่ใช้", "ตำแหน่งชิ้นงาน: <b>Fixture</b> (วางในจิ๊กที่เดิมทุกครั้ง เร็วที่สุด) · <b>ค้นหาตำแหน่ง</b> · <b>ค้นหาตำแหน่ง + การหมุน</b>", "ระยะค้นหา (มม.) ว่าง = ทั้งภาพ (ระยะสั้น = เร็วกว่า)", "ข้อมูลสเกลจากการสอบเทียบ และคำเตือน"])}
 <ol><li>โหลด/ถ่ายภาพต้นแบบ <b>หลัง</b> สอบเทียบ (กล้องและค่าตั้งเดียวกัน) จุดเริ่มของโปรแกรม = กลางภาพ (กด ◎ REF1 เพื่อย้าย)</li>
@@ -169,6 +170,14 @@ ${step(5, "นำไปใช้ในโปรแกรม", `${fig(L, "32_trai
 <tr><td>ตัวอักษรหายหรือเกิน</td><td>กรอบชิดตัวอักษรเกินไปหรือรวมขอบชิ้นงาน/2D code · วาดกรอบใหม่ หนึ่งบรรทัดต่อกรอบ</td></tr>
 <tr><td>ตอบตัวที่ไม่ได้สอน ไม่ได้</td><td>ตัวอ่านรู้เฉพาะตัวที่สอน (ดู "knows" ในคุณสมบัติกรอบ) · เก็บภาพตัวนั้นเพิ่มแล้วสอนใหม่</td></tr>
 <tr><td>test สูงแต่ใช้งานจริงผิด</td><td>ภาพสอนไม่หลากหลาย (วันเดียว ชิ้นเดียว) · เก็บจากหลายล็อต/กะ แล้วใช้ Test on new images</td></tr></table>
+
+<h2 id="wi-new061">13. พื้นที่ค้นหา REF · ประวัติแก้ไข · คัดลอกแบบ Array (v0.6.1)</h2>
+<table class="tbl wi-tbl"><tr><th>ทำอะไร</th><th>วิธีทำ</th></tr>
+<tr><td>📐 สอบเทียบสถานี</td><td>แท็บ <b>📐 Calibration</b> (แสดงเสมอ ใช้ใน CodeVerifyStation ได้ด้วย) · ดูหัวข้อ 10</td></tr>
+<tr><td>จำกัดพื้นที่หา REF</td><td>แท็บ 1 → <b>⬚ REF area</b> ลากกรอบรอบ REF1 (และ REF2) เผื่อระยะที่ชิ้นงานเลื่อนได้ · ภาพใหม่จะหาวงกลม REF ในกรอบเท่านั้น (เร็วขึ้น ไม่จับรูอื่นผิด) · <b>Clear</b> = หาทั้งภาพ</td></tr>
+<tr><td>เปลี่ยนชื่อโปรแกรม</td><td>แก้ <b>Part name</b> แล้วกด <b>Save to library</b> · ใส่บันทึกการแก้ไข · id เดิม เวอร์ชัน +1 · ชื่อเก่าเก็บไว้ (flow ที่ใช้ชื่อเก่ายังหาเจอ)</td></tr>
+<tr><td>ดูประวัติการแก้ไข</td><td>การ์ด Library → <b>Revision history</b>: เวอร์ชัน วันที่ ผู้แก้ บันทึก การเปลี่ยนชื่อ</td></tr>
+<tr><td>คัดลอกจุดวัดแบบเดียวกัน</td><td>ติ๊ก ☑ องค์ประกอบในรายการ Elements → <b>▦ Array copy…</b> → จำนวนคอลัมน์/แถว (รวมตัวต้นฉบับ) และระยะห่าง X/Y (มม. ตามแบบ) → ดูกรอบเส้นประสีเหลือง → <b>Create copies</b> · คัดลอกมิติพร้อมกันได้ · <b>Select group</b> = ติ๊กทั้งกลุ่มอีกครั้ง</td></tr></table>
 `;
   }
 
@@ -178,7 +187,7 @@ ${step(5, "นำไปใช้ในโปรแกรม", `${fig(L, "32_trai
     return `
 <div class="wi-head">
   <div><h1>Work Instruction — Photo Measurement</h1>
-  <div class="muted">Version 0.6.0 · open index.html in Chrome or Edge (no installation) · with an industrial camera: open through the Camera Bridge (section 9)</div></div>
+  <div class="muted">Version 0.6.1 · open index.html in Chrome or Edge (no installation) · with an industrial camera: open through the Camera Bridge (section 9)</div></div>
   <button class="btn primary no-print" onclick="window.print()">🖨 Print / Save as PDF</button>
 </div>
 
@@ -196,6 +205,7 @@ ${step(5, "นำไปใช้ในโปรแกรม", `${fig(L, "32_trai
     <li><a href="#wi-cal">Station calibration (no REF holes)</a></li>
     <li><a href="#wi-time">Processing time</a></li>
     <li><a href="#wi-train">Train your own character reader (Training)</a></li>
+    <li><a href="#wi-new061">REF search area · revisions · array copy</a></li>
   </ol>
 </div>
 
@@ -299,7 +309,7 @@ ${step(7, "Record images", `${fig(L, "23_cam_record", "Record images", ["<b>💾
 <li>A certified <b>dot-grid plate</b> (known dot pitch, e.g. 0.5 or 1.000 mm) that fills the field of view, or a ring / pin gauge of known Ø (less accurate).</li>
 <li>The plate surface must be at the <b>same height as the measured surface of the part</b> (another height = another scale) · camera square to the part · a telecentric lens is best.</li>
 <li>Do not change focus, zoom, camera distance, binning or image size after calibrating (if you do: calibrate again).</li></ul></div>
-${step(1, "Admin: calibrate with the plate (📷 Camera tab)", `${fig(L, "26_cal_plate", "Station calibration", ["Calibration state of this camera (valid / expires soon / expired)", "Plate: dot grid or ring / pin gauge", "Dot pitch (mm) from the plate certificate", "Valid for (days), e.g. 30", "<b>📷 Grab plate</b> or <b>Load plate image</b>", "Result picture: green dots = good, orange/red = off position (lines = error direction, magnified)", "Result: scale µm/px, X/Y, squareness, dot error RMS/max, lens distortion", "<b>Save calibration</b> · <b>Check against saved</b> (daily check, limit ±0.05 %)"])}
+${step(1, "Admin: calibrate with the plate (📐 Calibration tab)", `${fig(L, "26_cal_plate", "Station calibration", ["Calibration state of this camera (valid / expires soon / expired)", "Plate: dot grid or ring / pin gauge", "Dot pitch (mm) from the plate certificate", "Valid for (days), e.g. 30", "<b>📷 Grab plate</b> or <b>Load plate image</b>", "Result picture: green dots = good, orange/red = off position (lines = error direction, magnified)", "Result: scale µm/px, X/Y, squareness, dot error RMS/max, lens distortion", "<b>Save calibration</b> · <b>Check against saved</b> (daily check, limit ±0.05 %)"])}
 <p class="small">Guide values: dot error RMS &lt; 1/10 of the tightest tolerance · X/Y difference &lt; 0.2 % · distortion &lt; 0.1 % (if more, keep the measured features near the image centre).</p>`)}
 ${step(2, "Admin: let a program use the station calibration", `${fig(L, "27_cal_program", "Tab 1 · Part program", ["Reference = <b>Fixed calibration (station, no REF holes)</b>", "Station (camera) to use", "Part position: <b>Fixture</b> (always the same place, fastest) · <b>Search position</b> · <b>Search position + rotation</b>", "Search range (mm), empty = whole image (smaller = faster)", "Scale from the calibration and warnings"])}
 <ol><li>Load / grab the master <b>after</b> calibrating (same camera and settings). The program origin is the image centre (◎ REF1 moves it).</li>
@@ -332,6 +342,14 @@ ${step(5, "Use it in the program", `${fig(L, "32_train_use", "Tab 🧠 Training 
 <tr><td>Characters missing or extra</td><td>Box too tight, or it contains a part edge / 2D code · redraw it, one line per box</td></tr>
 <tr><td>A character can never be read</td><td>The reader knows only trained characters (see "knows" in the element properties) · collect images of it and train again</td></tr>
 <tr><td>High test result, wrong in production</td><td>Training images not varied (one day, one part) · collect from several lots / shifts and use Test on new images</td></tr></table>
+
+<h2 id="wi-new061">13. REF search area · revisions · array copy (v0.6.1)</h2>
+<table class="tbl wi-tbl"><tr><th>Task</th><th>How</th></tr>
+<tr><td>📐 Station calibration</td><td><b>📐 Calibration</b> tab (always shown, also inside CodeVerifyStation) · see section 10</td></tr>
+<tr><td>Limit where REF circles are searched</td><td>Tab 1 → <b>⬚ REF area</b>, drag a rectangle around REF1 (and REF2) with room for the part's position change · new photos are searched only inside it (faster, no other hole taken as REF) · <b>Clear</b> = whole photo</td></tr>
+<tr><td>Rename a program</td><td>Change <b>Part name</b>, then <b>Save to library</b> · enter the revision note · same id, version +1 · the old name is kept (flows using it still find the program)</td></tr>
+<tr><td>See the revision record</td><td>Library card → <b>Revision history</b>: version, date, user, note, renames</td></tr>
+<tr><td>Copy measuring points of the same style</td><td>Tick ☑ elements in the Elements list → <b>▦ Array copy…</b> → columns / rows (incl. the original) and pitch X / Y (mm, as in the drawing) → check the yellow dashed preview → <b>Create copies</b> · dimensions are copied too (option) · <b>Select group</b> ticks the whole group again</td></tr></table>
 `;
   }
 

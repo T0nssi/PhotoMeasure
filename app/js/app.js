@@ -159,12 +159,37 @@
     $("#libInfo").textContent = inLib ? `In library as v${inLib.version}, saved ${inLib.modified.slice(0, 16).replace("T", " ")}${inLib.by ? " by " + inLib.by : ""}` : "Not saved in the library yet.";
     $("#progInfo").textContent = inLib ? `v${inLib.version} · ${inLib.elements} tools · ${inLib.dims} dimensions` : (list.length ? "" : (isAdmin() ? "Save the program to the library so operators can use it." : "No programs yet: ask an admin."));
     S.libList = list;
+    renderRevisions();
+  }
+  /** Revision history of the open program (stored in the program: travels with export / backup / CodeVerifyStation). */
+  function renderRevisions() {
+    const revs = (S.t.revisions || []).slice().reverse();
+    $("#revCount").textContent = revs.length ? `(${revs.length})` : "";
+    $("#revList").innerHTML = revs.length ? `<table class="tbl small"><tr><th>v</th><th>Date</th><th>By</th><th>Note</th></tr>` + revs.map(r =>
+      `<tr><td>${r.v}</td><td>${esc(String(r.date).slice(0, 16).replace("T", " "))}</td><td>${esc(r.by || "")}</td><td>${r.renamedFrom ? `<b>${esc(r.renamedFrom)} → ${esc(r.name)}</b><br>` : ""}${esc(r.note || "")}<div class="muted">${r.elements} tools · ${r.dims} dimensions</div></td></tr>`).join("") + "</table>"
+      : `<span class="muted">No revisions yet. Every "Save to library" adds one (with a note). To rename the program, change the Part name and save.</span>`;
+    $("#formerNames").textContent = S.t.formerNames?.length ? `Former names (flows using them still find this program): ${S.t.formerNames.join(", ")}` : "";
   }
   $("#btnLibSave").addEventListener("click", async () => {
     if (!isAdmin()) return;
     if (!S.t.master?.frame) { toast("Set up the master photo and references first.", true); return; }
-    const rec = await LIB.put(S.t, S.user.name); S.t.libVersion = rec.version; saveLocal();
-    toast(`Saved "${rec.name}" to the library (v${rec.version}).`); renderLibrary();
+    // revision record: who / when / what changed (note), renames are recorded and the old name is kept for flows
+    const old = S.libList?.find(r => r.id === S.t.id) || null, renamed = old && old.name !== (S.t.name || "part");
+    const note = prompt(old ? `Revision note for v${(old.version || 0) + 1} – what changed?` : "Note for the first version (optional):", renamed ? `Renamed from "${old.name}"` : "");
+    if (note === null) return;
+    if (old && !note.trim() && !confirm("Save without a revision note?")) return;
+    const keep = { revisions: S.t.revisions, formerNames: S.t.formerNames };
+    S.t.revisions = [...(S.t.revisions || []), {
+      v: (old?.version || 0) + 1, date: new Date().toISOString(), by: S.user.name || "", name: S.t.name || "part", partNo: S.t.partNo || "", note: note.trim(),
+      elements: S.t.elements.filter(e => e.tool !== "ref").length, dims: S.t.dims.length, ...(renamed ? { renamedFrom: old.name } : {}),
+    }].slice(-200);
+    if (renamed) S.t.formerNames = [...new Set([...(S.t.formerNames || []), old.name])].filter(n => n !== S.t.name);
+    let rec;
+    try { rec = await LIB.put(S.t, S.user.name); }
+    catch (err) { Object.assign(S.t, keep); toast("Not saved: " + (err.message || err), true); return; }
+    if (rec.version !== S.t.revisions[S.t.revisions.length - 1].v) S.t.revisions[S.t.revisions.length - 1].v = rec.version;
+    S.t.libVersion = rec.version; saveLocal();
+    toast(`Saved "${rec.name}" to the library (v${rec.version})${renamed ? ` – renamed from "${old.name}"` : ""}.`); renderLibrary();
   });
   $("#btnLibOpen").addEventListener("click", async () => { const id = $("#libSel").value; if (id) await openFromLibrary(id); });
   $("#btnLibDel").addEventListener("click", async () => {
@@ -203,7 +228,7 @@
   $$("#tplTools [data-tool]").forEach(b => b.addEventListener("click", () => setTool(b.dataset.tool)));
   const HINT = {
     pan: "Drag = pan, wheel = zoom, click a tool or element to select it.",
-    ref1: "Click inside reference hole 1 (REF1 = origin).", ref2: "Click inside reference hole 2 (REF2 = X direction).",
+    ref1: "Click inside reference hole 1 (REF1 = origin).", refarea: "Drag a rectangle around REF1 (and REF2) with room for the part's position change: new photos are searched only inside it.", ref2: "Click inside reference hole 2 (REF2 = X direction).",
     circle: "Drag from the circle centre to its edge.", arc: "Click 3 points along the arc: start, middle, end.",
     line: "Drag along the edge from one end to the other. The arrow shows the scan direction (change it in the properties).",
     point: "Drag across the edge: the scan goes from the start to the end of the arrow.",
@@ -215,7 +240,7 @@
     if (!isAdmin() && tool !== "pan") return;
     if (!S.master && tool !== "pan") { toast("Load a master photo first."); return; }
     if (!S.t.master?.frame && !["pan", "ref1", "ref2"].includes(tool)) {
-      if (fixedCal()) { toast(stationRec() ? "Load the master photo again." : "No station calibration: calibrate the station first (Camera tab).", true); return; }
+      if (fixedCal()) { toast(stationRec() ? "Load the master photo again." : "No station calibration: calibrate the station first (📐 Calibration tab).", true); return; }
       toast(two() ? "Set REF1 and REF2 first." : "Set REF1 first."); tool = S.t.master?.c1 && two() ? "ref2" : "ref1";
     }
     S.tool = tool; S.draft = null; S.redraw = null;
@@ -240,7 +265,7 @@
     tv.set(S.master ? {
       img: proc ? S.masterProcCanvas : S.master.canvas, imgToPx: proc ? VW.A.scale(1 / S.masterProcCanvas.k) : null,
       frame: t.master?.frame || null, template: t.master?.frame ? t : null,
-      result: S.masterRes, cands: !t.master?.frame ? S.master.cands : null, selected: S.selEl,
+      result: S.masterRes, cands: !t.master?.frame ? S.master.cands : null, selected: S.selEl, refArea: areaPx(S.master),
       handles: S.tool === "pan" && t.master?.frame ? handlesFor(t, S.selEl) : null,
     } : null);
     $("#tplBadge").textContent = `${t.name || "part"}${t.partNo ? " · " + t.partNo : ""} · ${t.elements.filter(e => e.tool !== "ref").length} el · ${t.dims.length} dim`;
@@ -276,7 +301,7 @@
         if (fixedCal()) {
           S.t.master.c1 = { cx: p.w / 2, cy: p.h / 2, r: 0 };
           const st = stationRec();
-          if (!st) toast("Master loaded, but there is no station calibration for this program: calibrate the station first (Camera tab).", true);
+          if (!st) toast("Master loaded, but there is no station calibration for this program: calibrate the station first (📐 Calibration tab).", true);
           else { const chk = E.checkStation(st, p, null); if (!chk.ok) toast(chk.error, true); else { calibrateMaster(true); tplScene(); tv.fit(); setTool("pan"); toast(`Master loaded: ${origW}×${origH}px, scale from station calibration ${st.name || st.station}. Origin = image centre (change with ◎).`); } }
           if (!S.t.master.frame) { tplScene(); tv.fit(); }
         } else {
@@ -394,9 +419,10 @@
     document.body.classList.toggle("modecal", fixedCal());
     if (fixedCal()) { renderStationOptions(); $("#tPos").value = E.posOf(t); $("#tSearch").value = t.ref.searchMm || ""; }
     $$("[data-tool=ref2]").forEach(b => (b.hidden = !two()));
+    $$("[data-tool=refarea]").forEach(b => (b.hidden = fixedCal()));
     $("#btnSwap").hidden = !two();
     $("#btnPick").textContent = two() ? I.t("pickRefs") : I.t("pickRef1");
-    renderRotOptions(); fillProc();
+    renderRotOptions(); fillProc(); renderRefArea();
   }
   function renderSerialOptions() {
     const t = S.t, ocrs = t.elements.filter(e => e.tool === "ocr"), cur = t.serialFrom || "dm";
@@ -445,7 +471,7 @@
   }
   function renderStationInfo() {
     const st = stationRec(), el = $("#calInfo");
-    if (!st) { el.innerHTML = `<span class="bad">No station calibration for "${esc(S.t.ref.station || "files")}".</span> Calibrate the station with a calibration plate (Camera tab → Station calibration), then load the master photo.`; return; }
+    if (!st) { el.innerHTML = `<span class="bad">No station calibration for "${esc(S.t.ref.station || "files")}".</span> Calibrate the station with a calibration plate (📐 Calibration tab), then load the master photo.`; return; }
     if (!S.t.master) { el.textContent = "Load a master photo (from the same camera and settings as the calibration)."; return; }
     if (S.master) { const chk = E.checkStation(st, S.master, null); if (!chk.ok) { el.innerHTML = `<span class="bad">${esc(chk.error)}</span>`; return; } }
     if (!S.t.master.origW) el.innerHTML = '<span class="warn">Load the master photo again (its original size is needed for the fixed calibration).</span>';
@@ -567,11 +593,40 @@
       else if (tool === "line") addMeasured("line", { p0: a, p1: b, hw: Math.max(0.12 * L, 10 * pxToMm), side: 1 }, { ...E.defaultEdge(), select: "strongest" });
       else if (tool === "point") addMeasured("point", { p0: a, p1: b, w: 5 * pxToMm }, { ...E.defaultEdge() });
       else if (tool === "code") { const s = 2 * Math.max(Math.abs(b.x - a.x), Math.abs(b.y - a.y)); t.code = { x: a.x, y: a.y, size: s }; testCode(); S.selEl = "#code"; setTool("pan"); saveLocal(); }
+      else if (tool === "refarea") setRefArea(a, b);
       else if (tool === "rbox") { t.reportBox = { x0: Math.min(a.x, b.x), x1: Math.max(a.x, b.x), y0: Math.min(a.y, b.y), y1: Math.max(a.y, b.y) }; updateMasterRefData(); setTool("pan"); remeasureMaster(); toast("Report area set (also used to match new photos with the master)."); }
       return true;
     }
     return true;
   };
+
+  // ---- REF search area: a rectangle of the photo (fractions of width / height), REF circles are only searched inside ----
+  function areaPx(p) {
+    const a = E.refArea(S.t), w = p?.w, h = p?.h;
+    return a && w && h ? { x0: a.x0 * w, y0: a.y0 * h, x1: a.x1 * w, y1: a.y1 * h } : null;
+  }
+  function setRefArea(a, b) {
+    const t = S.t, f = t.master.frame, W = S.master.w, H = S.master.h;
+    const q = [a, b, { x: a.x, y: b.y }, { x: b.x, y: a.y }].map(m => G.toPx(f, m));
+    const cl = v => Math.max(0, Math.min(1, v));
+    const area = { x0: cl(Math.min(...q.map(p => p.x)) / W), x1: cl(Math.max(...q.map(p => p.x)) / W), y0: cl(Math.min(...q.map(p => p.y)) / H), y1: cl(Math.max(...q.map(p => p.y)) / H) };
+    if ((area.x1 - area.x0) * W < 20 || (area.y1 - area.y0) * H < 20) { toast("The REF area is too small.", true); setTool("pan"); return; }
+    const out = [t.master.c1, two() ? t.master.c2 : null].filter(Boolean).filter(c => c.cx - c.r < area.x0 * W || c.cx + c.r > area.x1 * W || c.cy - c.r < area.y0 * H || c.cy + c.r > area.y1 * H);
+    t.ref.area = area;
+    S.stale = S.items.length > 0;
+    saveLocal(); setTool("pan"); renderRefArea(); renderList();
+    toast(out.length ? "REF area set, but REF1/REF2 of the master is not completely inside: draw it larger." : `REF area set: ${Math.round((area.x1 - area.x0) * 100)} % × ${Math.round((area.y1 - area.y0) * 100)} % of the photo. Leave room for the part's position change.`, out.length > 0);
+  }
+  function renderRefArea() {
+    const a = E.refArea(S.t);
+    $("#tAreaInfo").textContent = a ? `${Math.round((a.x1 - a.x0) * 100)} % × ${Math.round((a.y1 - a.y0) * 100)} % of the photo (from ${Math.round(a.x0 * 100)} %, ${Math.round(a.y0 * 100)} %)` : "whole photo";
+    $("#btnAreaClear").disabled = !a || !isAdmin();
+  }
+  $("#btnAreaClear").addEventListener("click", () => {
+    if (!isAdmin() || !S.t.ref.area) return;
+    S.t.ref.area = null; S.stale = S.items.length > 0;
+    saveLocal(); renderRefArea(); tplScene(); renderList(); toast("REF area cleared: the whole photo is searched.");
+  });
 
   function drawDraft() {
     const d = S.draft, tool = S.tool;
@@ -587,7 +642,7 @@
         ctx.beginPath();
         if (tool === "circle" || tool === "color") ctx.arc(a.x, a.y, L, 0, 7);
         else if (tool === "code") { const s = Math.max(Math.abs(b.x - a.x), Math.abs(b.y - a.y)); ctx.rect(a.x - s, a.y - s, 2 * s, 2 * s); }
-        else if (tool === "rbox" || tool === "ocr") ctx.rect(Math.min(a.x, b.x), Math.min(a.y, b.y), Math.abs(b.x - a.x), Math.abs(b.y - a.y));
+        else if (tool === "rbox" || tool === "ocr" || tool === "refarea") ctx.rect(Math.min(a.x, b.x), Math.min(a.y, b.y), Math.abs(b.x - a.x), Math.abs(b.y - a.y));
         else { ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); }
         ctx.stroke();
       }
@@ -805,16 +860,71 @@
   }
   function renderElements() {
     const t = S.t, res = S.masterRes?.elements || {};
-    $("#elTable").innerHTML = `<tr><th>ID</th><th>Name</th><th>Tool</th><th class="num">Master</th><th></th></tr>` + t.elements.map(el =>
-      `<tr class="click ${S.selEl === el.id ? "sel" : ""}" data-id="${el.id}"><td><b>${el.id}</b></td><td><input class="nm" data-k="name" value="${esc(el.name)}"></td><td>${esc(E.describeElement(el))}</td><td class="num">${elSummary(res[el.id])}</td><td>${el.tool === "ref" ? "" : '<button class="x" title="Delete">✕</button>'}</td></tr>`).join("");
+    S.multi = new Set([...(S.multi || [])].filter(id => t.elements.some(e => e.id === id && e.tool !== "ref")));
+    $("#elTable").innerHTML = `<tr><th title="Tick elements to make a group / array copy"></th><th>ID</th><th>Name</th><th>Tool</th><th class="num">Master</th><th></th></tr>` + t.elements.map(el =>
+      `<tr class="click ${S.selEl === el.id ? "sel" : ""}" data-id="${el.id}"><td>${el.tool === "ref" ? "" : `<input type="checkbox" class="mk" ${S.multi.has(el.id) ? "checked" : ""} title="Group / array copy">`}</td><td><b>${el.id}</b>${el.group ? `<div class="muted small">${esc(el.group)}</div>` : ""}</td><td><input class="nm" data-k="name" value="${esc(el.name)}"></td><td>${esc(E.describeElement(el))}</td><td class="num">${elSummary(res[el.id])}</td><td>${el.tool === "ref" ? "" : '<button class="x" title="Delete">✕</button>'}</td></tr>`).join("");
     $$("#elTable tr[data-id]").forEach(tr => {
       const id = tr.dataset.id;
       tr.addEventListener("click", e => { if (e.target.matches("input, button")) return; selectElement(id); });
-      tr.querySelector("input").addEventListener("change", e => { t.elements.find(x => x.id === id).name = e.target.value; saveLocal(); });
+      tr.querySelector("input.nm").addEventListener("change", e => { t.elements.find(x => x.id === id).name = e.target.value; saveLocal(); });
+      tr.querySelector("input.mk")?.addEventListener("change", e => { if (e.target.checked) S.multi.add(id); else S.multi.delete(id); renderGroupBar(); });
       tr.querySelector(".x")?.addEventListener("click", () => deleteElement(id));
     });
-    renderProps(); renderConsSelects(); renderDimSelects();
+    renderGroupBar(); renderProps(); renderConsSelects(); renderDimSelects();
   }
+
+  // ---- group + array copy: tick elements of the same style (e.g. one hole with its dimensions), copy them at a pitch ----
+  function groupSel() { return S.t.elements.filter(e => S.multi?.has(e.id)); }
+  function renderGroupBar() {
+    const sel = groupSel(), adm = isAdmin();
+    $("#grpInfo").textContent = sel.length ? `${sel.length} ticked: ${sel.map(e => e.id).join(", ")}` : "Tick elements (☑) to copy them as a group.";
+    $("#btnArray").disabled = !sel.length || !adm || !S.t.master?.frame;
+    $("#btnGrpSel").disabled = !(S.selEl && S.t.elements.find(e => e.id === S.selEl)?.group) && !sel.some(e => e.group);
+    $("#btnGrpClear").disabled = !sel.length;
+    if (!sel.length) { $("#arrBox").hidden = true; tv.preview = null; }
+    else if (!$("#arrBox").hidden) arrPreview();
+  }
+  $("#btnGrpClear").addEventListener("click", () => { S.multi = new Set(); renderElements(); tv.preview = null; tv.draw(); });
+  $("#btnGrpSel").addEventListener("click", () => {
+    const g = S.t.elements.find(e => e.id === S.selEl)?.group || groupSel().find(e => e.group)?.group;
+    if (!g) return;
+    S.multi = new Set(S.t.elements.filter(e => e.group === g && e.tool !== "ref").map(e => e.id)); renderElements();
+  });
+  $("#btnArray").addEventListener("click", () => { $("#arrBox").hidden = !$("#arrBox").hidden; if ($("#arrBox").hidden) { tv.preview = null; tv.draw(); } else arrPreview(); });
+  ["#arrNx", "#arrNy", "#arrDx", "#arrDy"].forEach(id => $(id).addEventListener("input", () => arrPreview()));
+  const arrOpt = () => ({ nx: +$("#arrNx").value, ny: +$("#arrNy").value, dx: +$("#arrDx").value, dy: +$("#arrDy").value, dims: $("#arrDims").checked, D: S.masterRes ? E.datumOf(S.t, S.masterRes) : null });
+  /** Dashed outlines of the copies on the master (nothing is changed until Create). */
+  function arrPreview() {
+    const o = arrOpt(), sel = groupSel();
+    let tmp;
+    try { tmp = JSON.parse(JSON.stringify({ ...S.t, master: null })); tmp.master = S.t.master; E.arrayCopy(tmp, sel.map(e => e.id), { ...o, dims: false }); $("#arrMsg").textContent = `${(o.nx || 1) * (o.ny || 1) - 1} copies × ${sel.length} elements`; $("#arrMsg").className = "small muted"; }
+    catch (err) { tv.preview = null; tv.draw(); $("#arrMsg").textContent = err.message; $("#arrMsg").className = "small warn"; return; }
+    const copies = tmp.elements.filter(e => e.arrayOf);
+    tv.preview = (ctx, P, dpr) => {
+      ctx.save(); ctx.strokeStyle = "#fde047"; ctx.lineWidth = 1.5 * dpr; ctx.setLineDash([5, 4]);
+      const z = Math.hypot(P({ x: 1, y: 0 }).x - P({ x: 0, y: 0 }).x, P({ x: 1, y: 0 }).y - P({ x: 0, y: 0 }).y);
+      for (const c of copies) {
+        const r = c.roi; if (!r) continue;
+        ctx.beginPath();
+        if (r.p0 && r.p1) { const a = P(r.p0), b = P(r.p1); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); }
+        else if (typeof r.cx === "number" && r.w) { const p = P({ x: r.cx, y: r.cy }); ctx.rect(p.x - r.w * z / 2, p.y - r.h * z / 2, r.w * z, r.h * z); }
+        else if (typeof r.cx === "number") { const p = P({ x: r.cx, y: r.cy }); ctx.arc(p.x, p.y, Math.max(3, (r.r || 0.3) * z), 0, 7); }
+        ctx.stroke();
+      }
+      ctx.restore();
+    };
+    tv.draw();
+  }
+  $("#btnArrGo").addEventListener("click", () => {
+    if (!isAdmin()) return;
+    const sel = groupSel(), o = arrOpt();
+    let r;
+    try { r = E.arrayCopy(S.t, sel.map(e => e.id), o); } catch (err) { toast(err.message, true); return; }
+    $("#arrBox").hidden = true; tv.preview = null;
+    S.multi = new Set(); S.selEl = null;
+    calibrateMaster(true);
+    toast(`Array copy: ${r.elements.length} elements and ${r.dims.length} dimensions added (group ${sel[0].group}).` + (r.check.length ? ` Check the nominal of ${r.check.join(", ")}: they use an element outside the group.` : ""), r.check.length > 0);
+  });
 
   /** Remove an element plus everything built on it (constructions, dimensions). Returns false if cancelled. */
   function removeWithDeps(id, ask) {
@@ -1218,7 +1328,7 @@
       tl = now();
       const p = await getPhoto(it);
       lap("load");
-      if (!fixedCal() && (!p.cands || p.candsKey !== p.procKey)) p.cands = await V.findCircles(p, S.t.proc);
+      if (!fixedCal() && (!p.cands || p.candsKey !== V.candsKey(p, E.refArea(S.t)))) p.cands = await V.findCircles(p, S.t.proc, E.refArea(S.t));
       it.cands = p.cands || []; it.candsKey = p.candsKey;
       lap("circles");
       Object.assign(it, { w: p.w, h: p.h, date: it.shotTime ? new Date(it.shotTime) : p.date, dateSource: it.shotTime ? "camera" : p.dateSource, camera: it.cameraName || p.camera, loadScale: p.loadScale });
@@ -1295,6 +1405,7 @@
       img: proc ? it.procDisp : it.disp, imgToPx: proc ? VW.A.scale(1 / it.procDisp.k) : it.dispK ? VW.A.scale(1 / it.dispK) : null,
       frame: ok ? res.cal.frame : null,
       template: ok ? effTemplate(it) : null, result: ok ? res : null, cands: (!ok || $("#mCands").checked || S.pick) ? it.cands : null,
+      refArea: (!ok || $("#mCands").checked || S.pick) && it.w ? areaPx(it) : null,
       overlay: ok && alpha > 0 && S.master && S.t.master?.frame ? { img: S.master.canvas, frame: S.t.master.frame, alpha } : null,
       selected: S.adjRoi ? S.mSel : null,
       handles: ok && S.adjRoi && S.mSel ? handlesFor(S.t, S.mSel, it.ov) : null,
@@ -1594,6 +1705,8 @@
   PM.app = {
     S, hooks, toast, busy, download, safeName, esc,
     isAdmin: () => isAdmin(), showTab: n => showTab(n), saveLocal: () => saveLocal(), two: () => two(),
+    /** Host mode (inside CodeVerifyStation): the host's logged-in user replaces the own login. */
+    setUser(u) { const first = !S.user; S.user = u; applyRole(); if (u && first) afterLogin(); },
     ready: () => !!(S.t.master?.frame && S.t.master?.patch),
     activeTab: () => $$("#tabs button.active")[0]?.dataset.tab,
     /** Adds a camera image to the measure list and measures it. Resolves with the item when measured. */
